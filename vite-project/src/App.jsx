@@ -2,12 +2,15 @@ import { Route, Routes } from "react-router-dom";
 import Hero from "./components/Hero.jsx";
 import Products from "./components/Products.jsx";
 import Layout from "./layout/Layout.jsx";
+import AuthPage from "./pages/AuthPage.jsx";
 import PropertiesPage from "./pages/PropertiesPage.jsx";
 import PropertyDetailsPage from "./pages/PropertyDetailsPage.jsx";
 
 function App() {
     return (
         <Routes>
+            <Route path="login" element={<AuthPage mode="login" />} />
+            <Route path="register" element={<AuthPage mode="register" />} />
             <Route element={<Layout />}>
                 <Route
                     index

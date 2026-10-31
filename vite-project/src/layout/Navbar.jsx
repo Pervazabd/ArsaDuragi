@@ -112,17 +112,17 @@ function Navbar() {
 
                     {/* Desktop giriş / qeydiyyat */}
                     <div className="hidden items-center gap-2 sm:flex">
-                        <a
-                            href="/login"
+                        <Link
+                            to="/login"
                             onClick={closeMenus}
                             className="inline-flex h-10 items-center gap-2 rounded-xl px-3 text-[13px] font-medium text-white/70 transition hover:bg-white/[0.06] hover:text-white xl:px-4"
                         >
                             <LogIn size={16} />
                             <span>Giriş</span>
-                        </a>
+                        </Link>
 
-                        <a
-                            href="/register"
+                        <Link
+                            to="/register"
                             onClick={closeMenus}
                             className="group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-[12px] font-semibold text-[#171713] shadow-lg shadow-[#b99561]/10 transition hover:bg-[#d0b184] sm:px-4 xl:px-5"
                         >
@@ -132,7 +132,7 @@ function Navbar() {
                                 size={14}
                                 className="hidden transition-transform group-hover:translate-x-0.5 xl:block"
                             />
-                        </a>
+                        </Link>
                     </div>
 
                     {/* Mobil menyu düyməsi */}
@@ -199,25 +199,25 @@ function Navbar() {
 
                     {/* Mobil giriş / qeydiyyat */}
                     <div className="grid grid-cols-2 gap-3">
-                        <a
-                            href="/login"
+                        <Link
+                            to="/login"
                             onClick={closeMenus}
                             tabIndex={menuOpen ? 0 : -1}
                             className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.05]"
                         >
                             <LogIn size={17} />
                             Giriş Yap
-                        </a>
+                        </Link>
 
-                        <a
-                            href="/register"
+                        <Link
+                            to="/register"
                             onClick={closeMenus}
                             tabIndex={menuOpen ? 0 : -1}
                             className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-sm font-semibold text-[#171713] transition hover:bg-[#d0b184]"
                         >
                             <UserPlus size={17} />
                             Kayıt Ol
-                        </a>
+                        </Link>
                     </div>
 
                 </div>

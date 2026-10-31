@@ -143,4 +143,3 @@ function PropertyCard({ property }) {
 }
 
 export default PropertyCard;
-w
