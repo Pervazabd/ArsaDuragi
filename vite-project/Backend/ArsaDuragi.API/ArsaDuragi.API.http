@@ -1,0 +1,1559 @@
+# ArsaDuragi API test dəsti (Visual Studio .http faylı)
+#
+# NECƏ İSTİFADƏ OLUNUR
+#  1. ArsaDuragi.API işləyir olmalıdır (F5). Aşağıdakı @host portu launchSettings ilə uyğun olmalıdır.
+#  2. Sorğunu göndərmək üçün "###" ilə başlayan blokun üstündəki "Send request" düyməsinə basın.
+#  3. SIRASI İLƏ gedin (yuxarıdan aşağı). Sonrakı sorğular əvvəlkilərin cavabından token/id götürür.
+#  4. Hər sorğunun üstündəki "# EXPECT:" sətri gözlənilən nəticədir.
+#  5. Faylı təkrar işlətmək üçün @run dəyərini artırın (e-poçtlar və şəhər adı təkrar olmasın).
+#
+# ƏVVƏLCƏDƏN: auth rate-limit dəqiqədə 10 sorğudur. Test zamanı bloklanmamaq üçün:
+#   dotnet user-secrets set "RateLimiting:AuthPermitLimit" "1000" --project ArsaDuragi.API   (sonra API-ni yenidən başladın)
+# Admin hesabı: Seed:AdminEmail / Seed:AdminPassword (user-secrets). Aşağıdakı dəyərləri öz secret-lərinizə görə dəyişin.
+
+@baseUrl = http://localhost:5080
+@run = 1
+@adminEmail = admin@arsaduragi.local
+@adminPassword = Admin12345
+@pwd = Passw0rd1
+@email1 = musteri1-{{run}}@test.az
+@email2 = musteri2-{{run}}@test.az
+@email3 = musteri3-{{run}}@test.az
+
+@adminToken = {{adminLogin.response.body.$.data.accessToken}}
+@adminId = {{adminLogin.response.body.$.data.userId}}
+@customerToken = {{reg1.response.body.$.data.accessToken}}
+@customer3Token = {{reg3.response.body.$.data.accessToken}}
+@cityId = {{cities.response.body.$.data[0].id}}
+@districtId = {{districts.response.body.$.data[0].id}}
+@adId = {{createAd.response.body.$.data.id}}
+@adSlug = {{createAd.response.body.$.data.slug}}
+@adId2 = {{createAd2.response.body.$.data.id}}
+@img1 = {{upload2.response.body.$.data[0].id}}
+@img2 = {{upload2.response.body.$.data[1].id}}
+@demoId = {{demoGet.response.body.$.data.id}}
+@testCityId = {{createCity.response.body.$.data.id}}
+@testDistrictId = {{createDistrict.response.body.$.data.id}}
+@user3Id = {{usersSearch.response.body.$.data.items[0].id}}
+@pendId = {{pendAd.response.body.$.data.id}}
+@pendSlug = {{pendAd.response.body.$.data.slug}}
+
+
+########################################################################
+# 0. Mühit
+# Baza təzə olmalıdır (9 demo elan). Gözlənilən saylar buna əsaslanır.
+
+### 0.1  Swagger sənədi yaranır
+# EXPECT: 200
+GET http://localhost:5080/swagger/v1/swagger.json
+
+### 0.2  Demo elanlar seed olunub
+# EXPECT: 200; data.totalCount = 9
+# @name list0
+GET {{baseUrl}}/api/properties
+
+########################################################################
+# 1. Autentifikasiya
+
+### 1.1  Müştəri 1 qeydiyyatı
+# EXPECT: 201; roles=["User"]; accessToken və refreshToken var
+# @name reg1
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Müştəri Bir",
+  "email": "{{email1}}",
+  "phoneNumber": "+994501234567",
+  "password": "{{pwd}}",
+  "confirmPassword": "{{pwd}}"
+}
+
+### 1.2  Eyni e-poçt təkrar qeydiyyat
+# EXPECT: 409
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "T\u0259krar",
+  "email": "{{email1}}",
+  "password": "{{pwd}}",
+  "confirmPassword": "{{pwd}}"
+}
+
+### 1.3  Zəif şifrə + uyğun gəlməyən təsdiq
+# EXPECT: 400; success=false; errors boş deyil
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "X",
+  "email": "zeif-{{run}}@test.az",
+  "password": "abc",
+  "confirmPassword": "xyz"
+}
+
+### 1.4  Yanlış e-poçt formatı
+# EXPECT: 400
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Test User",
+  "email": "bu-email-deyil",
+  "password": "{{pwd}}",
+  "confirmPassword": "{{pwd}}"
+}
+
+### 1.5  Müştəri 1 login
+# EXPECT: 200; accessToken var
+# @name login1
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email1}}",
+  "password": "{{pwd}}"
+}
+
+### 1.6  Səhv şifrə
+# EXPECT: 401
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email1}}",
+  "password": "SehvSifre123"
+}
+
+### 1.7  Mövcud olmayan e-poçt
+# EXPECT: 401; mesaj 1.6 ilə eynidir (e-poçtun varlığı açıqlanmır)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "yoxdur-{{run}}@test.az",
+  "password": "SehvSifre123"
+}
+
+### 1.8  Admin login
+# EXPECT: 200; roles içində "Admin"
+# @name adminLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### 1.9  Öz profilim (müştəri)
+# EXPECT: 200; fullName="Müştəri Bir", roles=["User"]
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{customerToken}}
+
+### 1.10  Token olmadan profil
+# EXPECT: 401; standart zərf (success=false)
+GET {{baseUrl}}/api/users/me
+
+### 1.11  Dəyişdirilmiş (saxta) token
+# EXPECT: 401
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{adminToken}}x
+
+### 1.12  Müştəri 2 qeydiyyatı (refresh testi üçün)
+# EXPECT: 201
+# @name reg2
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Müştəri İki",
+  "email": "{{email2}}",
+  "password": "{{pwd}}",
+  "confirmPassword": "{{pwd}}"
+}
+
+### 1.13  Refresh token ilə yeni cüt
+# EXPECT: 200; yeni refreshToken köhnədən fərqlidir
+# @name refresh2
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{reg2.response.body.$.data.refreshToken}}"
+}
+
+### 1.14  KÖHNƏ refresh token yenidən (oğurluq simulyasiyası)
+# EXPECT: 401
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{reg2.response.body.$.data.refreshToken}}"
+}
+
+### 1.15  Yeni refresh token da ləğv olunub
+# EXPECT: 401 (reuse aşkarlandıqdan sonra istifadəçinin bütün token-ləri ləğv edilir)
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refresh2.response.body.$.data.refreshToken}}"
+}
+
+### 1.16  Müştəri 2 yenidən login
+# EXPECT: 200
+# @name login2
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email2}}",
+  "password": "{{pwd}}"
+}
+
+### 1.17  Logout
+# EXPECT: 204
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{login2.response.body.$.data.refreshToken}}"
+}
+
+### 1.18  Logout olmuş token ilə refresh
+# EXPECT: 401
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{login2.response.body.$.data.refreshToken}}"
+}
+
+### 1.19  Müştəri 3 qeydiyyatı (bloklama testi üçün)
+# EXPECT: 201
+# @name reg3
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Müştəri Üç",
+  "email": "{{email3}}",
+  "password": "{{pwd}}",
+  "confirmPassword": "{{pwd}}"
+}
+
+########################################################################
+# 2. Şəhər və rayonlar (açıq)
+
+### 2.1  Şəhərlər
+# EXPECT: 200; "Bakü" var
+# @name cities
+GET {{baseUrl}}/api/cities
+
+### 2.2  Şəhərin rayonları
+# EXPECT: 200; 9 rayon (Bilgah, Hövsan, Maştağa, Merdakan, Nardaran, Pirşağı, Ramana, Sabuncu, Zabrat)
+# @name districts
+GET {{baseUrl}}/api/districts?cityId={{cityId}}
+
+### 2.3  Bütün rayonlar
+# EXPECT: 200; 9 rayon
+GET {{baseUrl}}/api/districts
+
+########################################################################
+# 3. Elan yerləşdirmə qaydası (yalnız Admin)
+# Bu hissə Moderation:AdminOnlyPosting=true (standart) rejimi üçündür.
+
+### 3.1  Token olmadan elan yaratma
+# EXPECT: 401
+POST {{baseUrl}}/api/properties
+Content-Type: application/json
+
+{
+  "title": "Token olmadan elan",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 3.2  MÜŞTƏRİ elan yaratmağa çalışır
+# EXPECT: 403; "Only administrators can publish and manage listings."
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "title": "Müştəri elanı cəhdi",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 3.3  ADMİN elan yaradır
+# EXPECT: 201; status="Active" (təsdiq lazım deyil); slug var; zoning="Konut imarlı"; utilities=["Elektrik","Su"]
+# @name createAd
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Test elanı: Bilgah arsası",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 3.4  Admin yanlış məlumat göndərir (qiymət 0, sahə -1, qısa başlıq, təkrar kommunal, məsafəsiz yol)
+# EXPECT: 400; errors siyahısı
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "abc",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 0,
+  "area": -1,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "MainRoadNearby",
+  "utilities": [
+    "Water",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 3.5  Mövcud olmayan rayon
+# EXPECT: 400 ("district does not exist")
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Yanlış rayon elanı",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": 999999
+}
+
+########################################################################
+# 4. Oxuma (açıq)
+
+### 4.1  Elan siyahısı
+# EXPECT: 200; totalCount = 10 (9 demo + yeni elan)
+# @name list1
+GET {{baseUrl}}/api/properties
+
+### 4.2  Elan id ilə
+# EXPECT: 200; zoning="Konut imarlı"; utilities=["Elektrik","Su"]; roadAccess="Asfalt yola cepheli"; ownerName var
+# @name getAd
+GET {{baseUrl}}/api/properties/{{adId}}
+
+### 4.3  Elan slug ilə
+# EXPECT: 200; 4.2 ilə eyni elan
+GET {{baseUrl}}/api/properties/{{adSlug}}
+
+### 4.4  Köhnə frontend linki (demo slug)
+# EXPECT: 200; isDemo=true; verified=false; roadAccess="Asfalt yola cepheli"; image mütləq URL
+# @name demoGet
+GET {{baseUrl}}/api/properties/merdakan-konut-arsasi
+
+### 4.5  Demo: yola məsafə
+# EXPECT: 200; roadAccess="Ana yola 300 m"; roadDistanceMeters=300
+GET {{baseUrl}}/api/properties/bilgah-yatirim-arsasi
+
+### 4.6  Mövcud olmayan id
+# EXPECT: 404; success=false
+GET {{baseUrl}}/api/properties/999999
+
+### 4.7  Mövcud olmayan slug
+# EXPECT: 404
+GET {{baseUrl}}/api/properties/bele-elan-yoxdur
+
+### 4.8  Seçilmişlər
+# EXPECT: 200; 3 elan (merdakan, bilgah, sabuncu), hamısı featured=true
+GET {{baseUrl}}/api/properties/featured
+
+########################################################################
+# 5. Axtarış, filtr, sıralama, səhifələmə
+# Gözlənilən saylar təzə bazaya və 3.3-dəki elana əsaslanır: qiymət 150000, sahə 750, Konut imarlı, Land, rayon = siyahıdakı ilk rayon (adətən Bilgah).
+
+### 5.1  Rayon filtri
+# EXPECT: 200; totalCount = 2 (rayondakı 1 demo + yeni elan; ilk rayon Bilgah deyilsə: 1 və ya 2)
+GET {{baseUrl}}/api/properties?districtId={{districtId}}
+
+### 5.2  Qiymət aralığı 100000–200000
+# EXPECT: 200; totalCount = 6
+GET {{baseUrl}}/api/properties?minPrice=100000&maxPrice=200000
+
+### 5.3  Sahə aralığı 500–1000
+# EXPECT: 200; totalCount = 5
+GET {{baseUrl}}/api/properties?minArea=500&maxArea=1000
+
+### 5.4  İmar: Agricultural
+# EXPECT: 200; totalCount = 3 (hamısı "Tarım arazisi")
+GET {{baseUrl}}/api/properties?zoning=Agricultural
+
+### 5.5  İmar: Investment
+# EXPECT: 200; totalCount = 3 ("Yatırımlık arsa")
+GET {{baseUrl}}/api/properties?zoning=Investment
+
+### 5.6  İmar: Residential
+# EXPECT: 200; totalCount = 4
+GET {{baseUrl}}/api/properties?zoning=Residential
+
+### 5.7  Tip: Land
+# EXPECT: 200; totalCount = 10
+GET {{baseUrl}}/api/properties?propertyType=Land
+
+### 5.8  Tip: Field
+# EXPECT: 200; totalCount = 0
+GET {{baseUrl}}/api/properties?propertyType=Field
+
+### 5.9  Axtarış: Merdakan
+# EXPECT: 200; totalCount = 1
+GET {{baseUrl}}/api/properties?search=Merdakan
+
+### 5.10  Axtarış: Bilgah (rayon adı)
+# EXPECT: 200; totalCount = 2 (rayon Bilgah-dırsa)
+GET {{baseUrl}}/api/properties?search=Bilgah
+
+### 5.11  Qiymət artan
+# EXPECT: 200; ilk elanın qiyməti 72000, sonuncunun 212500
+GET {{baseUrl}}/api/properties?sortBy=price&sortOrder=asc
+
+### 5.12  Qiymət azalan
+# EXPECT: 200; ilk elanın qiyməti 212500
+GET {{baseUrl}}/api/properties?sortBy=price&sortOrder=desc
+
+### 5.13  Sahə azalan
+# EXPECT: 200; ilk elanın sahəsi 3200
+GET {{baseUrl}}/api/properties?sortBy=area&sortOrder=desc
+
+### 5.14  Sahə artan
+# EXPECT: 200; ilk elanın sahəsi 400
+GET {{baseUrl}}/api/properties?sortBy=area&sortOrder=asc
+
+### 5.15  Defolt sıralama (ən yeni)
+# EXPECT: 200; ilk elan 3.3-də yaradılan elandır
+GET {{baseUrl}}/api/properties
+
+### 5.16  Səhifələmə: 2-ci səhifə, 3-lük
+# EXPECT: 200; items=3 (qiymətlər 115000, 128000, 150000); totalCount=10; totalPages=4
+GET {{baseUrl}}/api/properties?page=2&pageSize=3&sortBy=price&sortOrder=asc
+
+### 5.17  Birgə filtrlər
+# EXPECT: 200; totalCount = 3; qiymətlər azalan: 180000, 150000, 115000
+GET {{baseUrl}}/api/properties?zoning=Residential&minPrice=100000&maxPrice=200000&minArea=500&sortBy=price&sortOrder=desc
+
+### 5.18  featured=true filtri
+# EXPECT: 200; totalCount = 3
+GET {{baseUrl}}/api/properties?featured=true
+
+### 5.19  pageSize=1000
+# EXPECT: 400
+GET {{baseUrl}}/api/properties?pageSize=1000
+
+### 5.20  page=0
+# EXPECT: 400
+GET {{baseUrl}}/api/properties?page=0
+
+### 5.21  minPrice > maxPrice
+# EXPECT: 400
+GET {{baseUrl}}/api/properties?minPrice=10&maxPrice=5
+
+### 5.22  Yanlış enum (propertyType=Castle)
+# EXPECT: 400; standart zərf
+GET {{baseUrl}}/api/properties?propertyType=Castle
+
+### 5.23  Yanlış sortBy
+# EXPECT: 400
+GET {{baseUrl}}/api/properties?sortBy=password
+
+### 5.24  SQL injection cəhdi
+# EXPECT: 200; totalCount = 0 (xəta yox, bütün elanlar qayıtmır)
+GET {{baseUrl}}/api/properties?search=%27%20OR%201%3D1%20--
+
+### 5.25  Axtarışda % simvolu (wildcard olmamalıdır)
+# EXPECT: 200; totalCount = 0
+GET {{baseUrl}}/api/properties?search=%25
+
+### 5.26  Axtarışda _ simvolu (wildcard olmamalıdır)
+# EXPECT: 200; totalCount = 0
+GET {{baseUrl}}/api/properties?search=_
+
+########################################################################
+# 6. Redaktə, status, silmə
+
+### 6.1  Müştəri redaktə edir
+# EXPECT: 403
+PUT {{baseUrl}}/api/properties/{{adId}}
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "title": "Müştəri redaktəsi",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 6.2  Müştəri silir
+# EXPECT: 403
+DELETE {{baseUrl}}/api/properties/{{adId}}
+Authorization: Bearer {{customerToken}}
+
+### 6.3  Müştəri status dəyişir
+# EXPECT: 403
+PUT {{baseUrl}}/api/properties/{{adId}}/status
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "status": "Sold"
+}
+
+### 6.4  Token olmadan redaktə
+# EXPECT: 401
+PUT {{baseUrl}}/api/properties/{{adId}}
+Content-Type: application/json
+
+{
+  "title": "Anonim redaktə",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 6.5  Admin redaktə edir
+# EXPECT: 200; title="Yenilənmiş elan başlığı"; price=160000; status "Active" qalır
+PUT {{baseUrl}}/api/properties/{{adId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Yenilənmiş elan başlığı",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 160000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 6.6  Redaktənin yoxlanması
+# EXPECT: 200; yeni başlıq və qiymət; updatedAt dolu
+GET {{baseUrl}}/api/properties/{{adId}}
+
+### 6.7  Admin status: Sold
+# EXPECT: 200; status="Sold"
+PUT {{baseUrl}}/api/properties/{{adId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "Sold"
+}
+
+### 6.8  Satılmış elan ictimai siyahıdan çıxır
+# EXPECT: 200; totalCount = 0
+GET {{baseUrl}}/api/properties?search=Yenilənmiş
+
+### 6.9  Admin status: Archived
+# EXPECT: 200; "Archived"
+PUT {{baseUrl}}/api/properties/{{adId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "Archived"
+}
+
+### 6.10  Yenidən göndər (Pending → admin üçün dərhal Active)
+# EXPECT: 200; status="Active"
+PUT {{baseUrl}}/api/properties/{{adId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "Pending"
+}
+
+### 6.11  Qadağan status keçidi (Active)
+# EXPECT: 400
+PUT {{baseUrl}}/api/properties/{{adId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "Active"
+}
+
+### 6.12  Admin yanlış məlumatla redaktə
+# EXPECT: 400
+PUT {{baseUrl}}/api/properties/{{adId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Yenilənmiş elan başlığı",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 0,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 6.13  Silmək üçün ikinci elan
+# EXPECT: 201
+# @name createAd2
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Silinəcək test elanı",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 99000,
+  "area": 300,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 6.14  Elanı sil
+# EXPECT: 204
+DELETE {{baseUrl}}/api/properties/{{adId2}}
+Authorization: Bearer {{adminToken}}
+
+### 6.15  Silinmiş elan oxunmur
+# EXPECT: 404
+GET {{baseUrl}}/api/properties/{{adId2}}
+
+### 6.16  Təkrar silmə
+# EXPECT: 404
+DELETE {{baseUrl}}/api/properties/{{adId2}}
+Authorization: Bearer {{adminToken}}
+
+########################################################################
+# 7. Şəkillər
+# TestAssets qovluğundakı fayllar lazımdır. Real şəkillər: photo.jpg, photo.png. Saxtalar: fake.jpg (mətn), script.php.
+
+### 7.1  Müştəri şəkil yükləyir
+# EXPECT: 403
+POST {{baseUrl}}/api/properties/{{adId}}/images
+Authorization: Bearer {{customerToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary--
+
+### 7.2  Admin 2 şəkil yükləyir (jpg + png)
+# EXPECT: 201; 2 şəkil; birincinin isMain=true
+# @name upload2
+POST {{baseUrl}}/api/properties/{{adId}}/images
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.png"
+Content-Type: image/png
+
+< ./TestAssets/photo.png
+------ArsaBoundary--
+
+### 7.3  Mətn faylı .jpg adı ilə
+# EXPECT: 400 (fayl imzası yoxlanır)
+POST {{baseUrl}}/api/properties/{{adId}}/images
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="evil.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/fake.jpg
+------ArsaBoundary--
+
+### 7.4  .php faylı
+# EXPECT: 400 (uzantı icazəli deyil)
+POST {{baseUrl}}/api/properties/{{adId}}/images
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="shell.php"
+Content-Type: image/jpeg
+
+< ./TestAssets/script.php
+------ArsaBoundary--
+
+### 7.5  PNG məzmunu .jpg adı ilə
+# EXPECT: 400 (məzmun uzantıya uyğun deyil)
+POST {{baseUrl}}/api/properties/{{adId}}/images
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="x.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.png
+------ArsaBoundary--
+
+### 7.6  Elanda şəkillər
+# EXPECT: 200; images.length=2; image = http://localhost:5080/uploads/properties/{id}/{guid}.jpg
+# @name getAdImages
+GET {{baseUrl}}/api/properties/{{adId}}
+
+### 7.7  Şəkil faylı brauzerdən açılır
+# EXPECT: 200; Content-Type: image/jpeg; X-Content-Type-Options: nosniff
+GET {{getAdImages.response.body.$.data.images[0].url}}
+
+### 7.8  İkinci şəkli əsas et
+# EXPECT: 200; ikinci şəkil isMain=true, birincisi false
+PUT {{baseUrl}}/api/properties/{{adId}}/images/{{img2}}/main
+Authorization: Bearer {{adminToken}}
+
+### 7.9  Birinci şəkli yenisi ilə əvəz et (png)
+# EXPECT: 200; url .png ilə bitir; köhnə fayl diskdən silinir
+PUT {{baseUrl}}/api/properties/{{adId}}/images/{{img1}}
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="file"; filename="new.png"
+Content-Type: image/png
+
+< ./TestAssets/photo.png
+------ArsaBoundary--
+
+### 7.10  Müştəri şəkil silir
+# EXPECT: 403
+DELETE {{baseUrl}}/api/properties/{{adId}}/images/{{img1}}
+Authorization: Bearer {{customerToken}}
+
+### 7.11  Admin əsas şəkli silir
+# EXPECT: 204; fayl diskdən silinir
+DELETE {{baseUrl}}/api/properties/{{adId}}/images/{{img2}}
+Authorization: Bearer {{adminToken}}
+
+### 7.12  Qalan şəkil avtomatik əsas olur
+# EXPECT: 200; images.length=1, isMain=true
+GET {{baseUrl}}/api/properties/{{adId}}
+
+### 7.13  9 şəkil əlavə et (cəmi 10)
+# EXPECT: 201; 9 şəkil
+POST {{baseUrl}}/api/properties/{{adId}}/images
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary--
+
+### 7.14  11-ci şəkil
+# EXPECT: 400 (maksimum 10)
+POST {{baseUrl}}/api/properties/{{adId}}/images
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----ArsaBoundary
+
+------ArsaBoundary
+Content-Disposition: form-data; name="files"; filename="photo.jpg"
+Content-Type: image/jpeg
+
+< ./TestAssets/photo.jpg
+------ArsaBoundary--
+
+### 7.15  Path traversal cəhdi (statik fayl)
+# EXPECT: 404 və ya 400; appsettings.json oxunmur
+GET {{baseUrl}}/uploads/..%2F..%2Fappsettings.json
+
+### 7.16  Konfiqurasiya faylı açıq deyil
+# EXPECT: 404
+GET {{baseUrl}}/appsettings.json
+
+########################################################################
+# 8. Favoritlər (müştəri 1)
+
+### 8.1  Token olmadan
+# EXPECT: 401
+GET {{baseUrl}}/api/favorites
+
+### 8.2  Mövcud olmayan elan
+# EXPECT: 404
+POST {{baseUrl}}/api/favorites/999999
+Authorization: Bearer {{customerToken}}
+
+### 8.3  Favoritə əlavə et
+# EXPECT: 201
+POST {{baseUrl}}/api/favorites/{{adId}}
+Authorization: Bearer {{customerToken}}
+
+### 8.4  Eyni elanı təkrar
+# EXPECT: 409
+POST {{baseUrl}}/api/favorites/{{adId}}
+Authorization: Bearer {{customerToken}}
+
+### 8.5  Favorit siyahısı
+# EXPECT: 200; items=1; items[0].property.id = adId; property.image dolu
+GET {{baseUrl}}/api/favorites
+Authorization: Bearer {{customerToken}}
+
+### 8.6  Favorit id-ləri
+# EXPECT: 200; [adId]
+GET {{baseUrl}}/api/favorites/ids
+Authorization: Bearer {{customerToken}}
+
+### 8.7  Admin-in favoriti ayrıdır
+# EXPECT: 200; items=0 (müştərinin favoriti görünmür)
+GET {{baseUrl}}/api/favorites
+Authorization: Bearer {{adminToken}}
+
+### 8.8  Favoritdən çıxar
+# EXPECT: 204
+DELETE {{baseUrl}}/api/favorites/{{adId}}
+Authorization: Bearer {{customerToken}}
+
+### 8.9  Təkrar çıxarma
+# EXPECT: 404
+DELETE {{baseUrl}}/api/favorites/{{adId}}
+Authorization: Bearer {{customerToken}}
+
+### 8.10  Siyahı boşdur
+# EXPECT: 200; items=0
+GET {{baseUrl}}/api/favorites
+Authorization: Bearer {{customerToken}}
+
+### 8.11  Demo elanı favoritə əlavə et
+# EXPECT: 201
+POST {{baseUrl}}/api/favorites/{{demoId}}
+Authorization: Bearer {{customerToken}}
+
+########################################################################
+# 9. Şəhər/rayon idarəsi (Admin)
+
+### 9.1  Müştəri şəhər yaradır
+# EXPECT: 403
+POST {{baseUrl}}/api/cities
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "name": "Hack City"
+}
+
+### 9.2  Admin şəhər yaradır
+# EXPECT: 201
+# @name createCity
+POST {{baseUrl}}/api/cities
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "TestCity{{run}}"
+}
+
+### 9.3  Eyni adlı şəhər
+# EXPECT: 409
+POST {{baseUrl}}/api/cities
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "TestCity{{run}}"
+}
+
+### 9.4  Boş ad
+# EXPECT: 400
+POST {{baseUrl}}/api/cities
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": ""
+}
+
+### 9.5  Rayon yarat
+# EXPECT: 201; cityName="TestCity{{run}}"
+# @name createDistrict
+POST {{baseUrl}}/api/districts
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "TestRayon", "cityId": {{testCityId}} }
+
+### 9.6  Eyni şəhərdə eyni ad
+# EXPECT: 409
+POST {{baseUrl}}/api/districts
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "TestRayon", "cityId": {{testCityId}} }
+
+### 9.7  Mövcud olmayan şəhərə rayon
+# EXPECT: 400
+POST {{baseUrl}}/api/districts
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "Yoxdur", "cityId": 999999 }
+
+### 9.8  Rayon adını dəyiş
+# EXPECT: 200; name="TestRayon2"
+PUT {{baseUrl}}/api/districts/{{testDistrictId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "TestRayon2", "cityId": {{testCityId}} }
+
+### 9.9  Elan: rayon başqa şəhərə aiddir
+# EXPECT: 400 ("does not belong to the selected city")
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Uyğunsuz şəhər/rayon",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{testDistrictId}}
+}
+
+### 9.10  Rayonu olan şəhəri sil
+# EXPECT: 409
+DELETE {{baseUrl}}/api/cities/{{testCityId}}
+Authorization: Bearer {{adminToken}}
+
+### 9.11  Elanı olan rayonu sil
+# EXPECT: 409
+DELETE {{baseUrl}}/api/districts/{{districtId}}
+Authorization: Bearer {{adminToken}}
+
+### 9.12  Müştəri rayon silir
+# EXPECT: 403
+DELETE {{baseUrl}}/api/districts/{{testDistrictId}}
+Authorization: Bearer {{customerToken}}
+
+### 9.13  Boş test rayonunu sil
+# EXPECT: 204
+DELETE {{baseUrl}}/api/districts/{{testDistrictId}}
+Authorization: Bearer {{adminToken}}
+
+### 9.14  Boş test şəhərini sil
+# EXPECT: 204
+DELETE {{baseUrl}}/api/cities/{{testCityId}}
+Authorization: Bearer {{adminToken}}
+
+########################################################################
+# 10. Admin əməliyyatları
+
+### 10.1  Müştəri admin siyahısına baxır
+# EXPECT: 403
+GET {{baseUrl}}/api/admin/properties
+Authorization: Bearer {{customerToken}}
+
+### 10.2  Token olmadan
+# EXPECT: 401
+GET {{baseUrl}}/api/admin/properties
+
+### 10.3  Admin: Active elanlar
+# EXPECT: 200; totalCount ≥ 10
+GET {{baseUrl}}/api/admin/properties?status=Active
+Authorization: Bearer {{adminToken}}
+
+### 10.4  Admin: Pending növbəsi
+# EXPECT: 200; totalCount = 0 (admin-only rejimində gözləyən elan olmur)
+GET {{baseUrl}}/api/admin/properties?status=Pending
+Authorization: Bearer {{adminToken}}
+
+### 10.5  İstifadəçi siyahısı
+# EXPECT: 200; admin, demo-owner və 3 müştəri; hər birinin roles-u var
+GET {{baseUrl}}/api/admin/users
+Authorization: Bearer {{adminToken}}
+
+### 10.6  İstifadəçi axtarışı (müştəri 3)
+# EXPECT: 200; items=1
+# @name usersSearch
+GET {{baseUrl}}/api/admin/users?search={{email3}}
+Authorization: Bearer {{adminToken}}
+
+### 10.7  Müştəri 3-ü blokla
+# EXPECT: 204
+PUT {{baseUrl}}/api/admin/users/{{user3Id}}/lock
+Authorization: Bearer {{adminToken}}
+
+### 10.8  Bloklanmış istifadəçi login
+# EXPECT: 403
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email3}}",
+  "password": "{{pwd}}"
+}
+
+### 10.9  Blokdan çıxar
+# EXPECT: 204
+PUT {{baseUrl}}/api/admin/users/{{user3Id}}/unlock
+Authorization: Bearer {{adminToken}}
+
+### 10.10  İndi login olur
+# EXPECT: 200
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email3}}",
+  "password": "{{pwd}}"
+}
+
+### 10.11  Admin özünü bloklayır
+# EXPECT: 400
+PUT {{baseUrl}}/api/admin/users/{{adminId}}/lock
+Authorization: Bearer {{adminToken}}
+
+### 10.12  Müştəri istifadəçi bloklayır
+# EXPECT: 403
+PUT {{baseUrl}}/api/admin/users/{{adminId}}/lock
+Authorization: Bearer {{customerToken}}
+
+### 10.13  Elanı "seçilmiş" et
+# EXPECT: 200; featured=true
+PUT {{baseUrl}}/api/admin/properties/{{adId}}/featured
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "isFeatured": true
+}
+
+### 10.14  Seçilmişlər siyahısı
+# EXPECT: 200; 4 elan, yeni elan daxil
+GET {{baseUrl}}/api/properties/featured
+
+### 10.15  Müştəri "seçilmiş" edir
+# EXPECT: 403
+PUT {{baseUrl}}/api/admin/properties/{{adId}}/featured
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "isFeatured": true
+}
+
+### 10.16  Seçilmişdən çıxar
+# EXPECT: 200; featured=false
+PUT {{baseUrl}}/api/admin/properties/{{adId}}/featured
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "isFeatured": false
+}
+
+### 10.17  Active elanı təsdiqləmək
+# EXPECT: 400 (yalnız Pending/Rejected təsdiqlənir)
+POST {{baseUrl}}/api/admin/properties/{{adId}}/approve
+Authorization: Bearer {{adminToken}}
+
+### 10.18  Rədd səbəbi boş
+# EXPECT: 400
+POST {{baseUrl}}/api/admin/properties/{{adId}}/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": ""
+}
+
+########################################################################
+# 11. CORS
+
+### 11.1  Preflight: icazəli origin (React)
+# EXPECT: 204; Access-Control-Allow-Origin: http://localhost:5173
+OPTIONS {{baseUrl}}/api/properties
+Origin: http://localhost:5173
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: authorization,content-type
+
+### 11.2  Preflight: yad origin
+# EXPECT: Access-Control-Allow-Origin başlığı YOXDUR
+OPTIONS {{baseUrl}}/api/properties
+Origin: http://evil.example.com
+Access-Control-Request-Method: POST
+
+########################################################################
+# 12. Moderasiya axını (B HİSSƏSİ: müştəri elan yerləşdirmə rejimi)
+# YALNIZ bu əmri işlədib API-ni yenidən başladandan sonra: dotnet user-secrets set "Moderation:AdminOnlyPosting" "false" --project ArsaDuragi.API . Bitəndən sonra: dotnet user-secrets remove "Moderation:AdminOnlyPosting" --project ArsaDuragi.API
+
+### 12.1  Müştəri elan yaradır
+# EXPECT: 201; status="Pending"
+# @name pendAd
+POST {{baseUrl}}/api/properties
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "title": "Moderasiya testi elanı",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 111000,
+  "area": 555,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 12.2  İctimai siyahıda görünmür
+# EXPECT: 200; totalCount = 0
+GET {{baseUrl}}/api/properties?search=Moderasiya
+
+### 12.3  Anonim slug ilə açır
+# EXPECT: 404
+GET {{baseUrl}}/api/properties/{{pendSlug}}
+
+### 12.4  Sahib özü açır
+# EXPECT: 200; status="Pending"
+GET {{baseUrl}}/api/properties/{{pendSlug}}
+Authorization: Bearer {{customerToken}}
+
+### 12.5  Mənim elanlarım (Pending)
+# EXPECT: 200; yeni elan siyahıdadır
+GET {{baseUrl}}/api/users/me/properties?status=Pending
+Authorization: Bearer {{customerToken}}
+
+### 12.6  Başqa müştəri (3) açır
+# EXPECT: 404
+GET {{baseUrl}}/api/properties/{{pendSlug}}
+Authorization: Bearer {{customer3Token}}
+
+### 12.7  Başqa müştəri redaktə edir
+# EXPECT: 403
+PUT {{baseUrl}}/api/properties/{{pendId}}
+Authorization: Bearer {{customer3Token}}
+Content-Type: application/json
+
+{
+  "title": "Başqasının elanı",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 150000,
+  "area": 750,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 12.8  Müştəri özü təsdiqləyir
+# EXPECT: 403
+POST {{baseUrl}}/api/admin/properties/{{pendId}}/approve
+Authorization: Bearer {{customerToken}}
+
+### 12.9  Müştəri statusla özü Active edir
+# EXPECT: 400
+PUT {{baseUrl}}/api/properties/{{pendId}}/status
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "status": "Active"
+}
+
+### 12.10  Admin növbəyə baxır
+# EXPECT: 200; elan siyahıdadır
+GET {{baseUrl}}/api/admin/properties?status=Pending
+Authorization: Bearer {{adminToken}}
+
+### 12.11  Admin təsdiqləyir
+# EXPECT: 200; status="Active"; listedAt dolu
+POST {{baseUrl}}/api/admin/properties/{{pendId}}/approve
+Authorization: Bearer {{adminToken}}
+
+### 12.12  İndi ictimai siyahıda görünür
+# EXPECT: 200; totalCount = 1
+GET {{baseUrl}}/api/properties?search=Moderasiya
+
+### 12.13  Sahib redaktə edir
+# EXPECT: 200; status yenidən "Pending"
+PUT {{baseUrl}}/api/properties/{{pendId}}
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "title": "Moderasiya testi elanı",
+  "description": "Test elanı: bu mətn validasiya üçün kifayət qədər uzundur.",
+  "address": "Bilgah, Bakü",
+  "price": 112000,
+  "area": 555,
+  "propertyType": "Land",
+  "zoning": "Residential",
+  "terrain": "Flat",
+  "roadAccess": "AsphaltFrontage",
+  "utilities": [
+    "Electricity",
+    "Water"
+  ],
+  "cityId": {{cityId}},
+  "districtId": {{districtId}}
+}
+
+### 12.14  Admin rədd edir
+# EXPECT: 200; status="Rejected"; rejectionReason dolu
+POST {{baseUrl}}/api/admin/properties/{{pendId}}/reject
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Şəkillər əlavə edilməyib"
+}
+
+### 12.15  Sahib səbəbi görür
+# EXPECT: 200; rejectionReason="Şəkillər əlavə edilməyib"
+GET {{baseUrl}}/api/properties/{{pendSlug}}
+Authorization: Bearer {{customerToken}}
+
+### 12.16  Yenidən göndər
+# EXPECT: 200; status="Pending"
+PUT {{baseUrl}}/api/properties/{{pendId}}/status
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "status": "Pending"
+}
+
+### 12.17  Admin təsdiqləyir
+# EXPECT: 200; "Active"
+POST {{baseUrl}}/api/admin/properties/{{pendId}}/approve
+Authorization: Bearer {{adminToken}}
+
+### 12.18  Sahib "Sold" edir
+# EXPECT: 200; "Sold"
+PUT {{baseUrl}}/api/properties/{{pendId}}/status
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "status": "Sold"
+}
+
+### 12.19  Sahib silir
+# EXPECT: 204
+DELETE {{baseUrl}}/api/properties/{{pendId}}
+Authorization: Bearer {{customerToken}}
+
+
+### Elanların siyahısını yoxla
+GET http://localhost:5080/api/properties
+
+### Şəhərlərin siyahısı
+GET http://localhost:5080/api/cities
+
+### Bakı rayonlarının siyahısı
+GET http://localhost:5080/api/districts?cityId=1
+
+
+### Yeni istifadəçi qeydiyyatı
+POST http://localhost:5080/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Test User",
+  "email": "testuser2026@example.com",
+  "phoneNumber": "0501234567",
+  "password": "Test12345",
+  "confirmPassword": "Test12345"
+}
+
+### İstifadəçi login
+POST http://localhost:5080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "testuser2026@example.com",
+  "password": "Test12345"
+}
+
+### TEST 1 - Elanların siyahısı
+
+GET http://localhost:5080/api/properties
+Accept: application/json
+
+### A1 - Mövcud elan
+GET http://localhost:5080/api/properties/1
+
+### A2 - İkinci elan
+GET http://localhost:5080/api/properties/2
+
+### A3 - Mövcud olmayan elan
+GET http://localhost:5080/api/properties/999999
+
+### A4 - Yanlış ID
+GET http://localhost:5080/api/properties/abc
+
+### B1 - Bütün elanlar
+GET http://localhost:5080/api/properties
+
+### B2 - Səhifələmə
+GET http://localhost:5080/api/properties?page=1&pageSize=5
+
+### B3 - İkinci səhifə
+GET http://localhost:5080/api/properties?page=2&pageSize=5
+
+### B4 - Qiymət artan
+GET http://localhost:5080/api/properties?sortBy=price&sortOrder=asc
+
+### B5 - Qiymət azalan
+GET http://localhost:5080/api/properties?sortBy=price&sortOrder=desc
+
+### B6 - Minimum qiymət
+GET http://localhost:5080/api/properties?minPrice=100000
+
+### B7 - Maksimum qiymət
+GET http://localhost:5080/api/properties?maxPrice=150000
+
+### B8 - Şəhər
+GET http://localhost:5080/api/properties?cityId=1
+
+### B9 - Rayon
+GET http://localhost:5080/api/properties?districtId=1
+
+### B10 - Minimum sahə
+GET http://localhost:5080/api/properties?minArea=500
+
+### B11 - Maksimum sahə
+GET http://localhost:5080/api/properties?maxArea=1000
+
+### B12 - Bir neçə filtr
+GET http://localhost:5080/api/properties?cityId=1&minPrice=100000&maxPrice=200000
+
+### B13 - Boş nəticə
+GET http://localhost:5080/api/properties?minPrice=999999999
+
+### B14 - SQL Injection yoxlaması
+GET http://localhost:5080/api/properties?search=%27%20OR%201%3D1--
+Accept: application/json
+
+### B15 - Xüsusi simvollar
+GET http://localhost:5080/api/properties?search=%25_%27
+
+
+
+### 25 - Bütün elanlar
+GET http://localhost:5080/api/properties
+
+### 26 - Birinci səhifə
+GET http://localhost:5080/api/properties?page=1&pageSize=5
+
+### 27 - İkinci səhifə
+GET http://localhost:5080/api/properties?page=2&pageSize=5
+
+### 28 - Qiymət artan
+GET http://localhost:5080/api/properties?sortBy=price&sortOrder=asc
+
+### 29 - Qiymət azalan
+GET http://localhost:5080/api/properties?sortBy=price&sortOrder=desc
+
+### 30 - Minimum qiymət
+GET http://localhost:5080/api/properties?minPrice=100000
+
+### 31 - Maksimum qiymət
+GET http://localhost:5080/api/properties?maxPrice=150000
+
+### 32 - Şəhər filtri
+GET http://localhost:5080/api/properties?cityId=1
+
+### 33 - Rayon filtri
+GET http://localhost:5080/api/properties?districtId=1
+
+### 34 - Minimum sahə
+GET http://localhost:5080/api/properties?minArea=500
+
+### 35 - Maksimum sahə
+GET http://localhost:5080/api/properties?maxArea=1000
+
+### 36 - Bir neçə filtr
+GET http://localhost:5080/api/properties?cityId=1&minPrice=100000&maxPrice=200000
+
+### 37 - Boş nəticə
+GET http://localhost:5080/api/properties?minPrice=999999999
+
+### 38 - SQL Injection
+GET http://localhost:5080/api/properties?search=%27%20OR%201%3D1--
+
+### 39 - Xüsusi simvollar
+GET http://localhost:5080/api/properties?search=%25_%27

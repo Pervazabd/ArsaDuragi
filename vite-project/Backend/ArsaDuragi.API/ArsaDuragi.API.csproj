@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <UserSecretsId>arsaduragi-api-dev</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="ArsaDuragi.API.http" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ArsaDuragi.Application\ArsaDuragi.Application.csproj" />
+    <ProjectReference Include="..\ArsaDuragi.Infrastructure\ArsaDuragi.Infrastructure.csproj" />
+    <ProjectReference Include="..\ArsaDuragi.Persistence\ArsaDuragi.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+    <!-- Needed by 'dotnet ef' because the API is the startup project. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>
