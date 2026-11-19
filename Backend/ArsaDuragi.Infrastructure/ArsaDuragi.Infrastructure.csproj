@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ArsaDuragi.Application\ArsaDuragi.Application.csproj" />
+    <ProjectReference Include="..\ArsaDuragi.Domain\ArsaDuragi.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Gives us IWebHostEnvironment, IHttpContextAccessor, options binding, logging. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.1.2" />
+  </ItemGroup>
+</Project>

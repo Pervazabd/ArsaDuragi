@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+*.user
+appsettings.Local.json
+ArsaDuragi.API/wwwroot/uploads/properties/*
+!ArsaDuragi.API/wwwroot/uploads/properties/.gitkeep
