@@ -1,7 +1,7 @@
-
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+﻿import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import DropdownSelect from "../components/DropdownSelect.jsx";
+import { getSession, logout as apiLogout } from "../services/api";
 import logo from "../assets/arsa-duragi-logo.png";
 import {
     ArrowRight,
@@ -12,6 +12,8 @@ import {
     UserPlus,
     X,
     Building2,
+    LogOut,
+    UserRound,
 } from "lucide-react";
 
 const navigation = [
@@ -29,6 +31,27 @@ const languages = [
 function Navbar() {
     const [menuOpen, setMenuOpen] = useState(false);
     const [language, setLanguage] = useState("tr");
+    const [session, setSession] = useState(() => getSession());
+    const navigate = useNavigate();
+
+    const isAdmin = session?.roles?.some(
+        (role) => String(role).toLowerCase() === "admin"
+    );
+
+    useEffect(() => {
+        const updateSession = () => {
+            setSession(getSession());
+        };
+
+        window.addEventListener("arsaDuragi:sessionChanged", updateSession);
+
+        return () => {
+            window.removeEventListener(
+                "arsaDuragi:sessionChanged",
+                updateSession
+            );
+        };
+    }, []);
 
     useEffect(() => {
         const handleKeyDown = (event) => {
@@ -56,13 +79,27 @@ function Navbar() {
         setMenuOpen(false);
     };
 
+    const handleLogout = async () => {
+        closeMenus();
+
+        try {
+            await apiLogout();
+        } catch (error) {
+            console.error("Logout error:", error);
+        } finally {
+            setSession(null);
+            navigate("/");
+        }
+    };
+
+    const displayName = session?.fullName || session?.email || "İstifadəçi";
+
     return (
         <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#151714]/95 text-white shadow-[0_8px_35px_rgba(0,0,0,0.12)] backdrop-blur-xl">
             <nav
                 className="relative mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 xl:px-10"
                 aria-label="Ana navigasyon"
             >
-                {/* Logo */}
                 <Link
                     to="/"
                     onClick={closeMenus}
@@ -76,7 +113,6 @@ function Navbar() {
                     />
                 </Link>
 
-                {/* Desktop naviqasiya */}
                 <div className="hidden items-center gap-1 lg:flex">
                     {navigation.map((item) => {
                         const Icon = item.icon;
@@ -98,9 +134,7 @@ function Navbar() {
                     })}
                 </div>
 
-                {/* Sağ tərəf */}
                 <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                    {/* Dil seçimi */}
                     <DropdownSelect
                         className="w-[70px]"
                         variant="navbar"
@@ -110,57 +144,75 @@ function Navbar() {
                         options={languages}
                     />
 
-                    {/* Desktop giriş / qeydiyyat */}
                     <div className="hidden items-center gap-2 sm:flex">
-                        <Link
-                            to="/login"
-                            onClick={closeMenus}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl px-3 text-[13px] font-medium text-white/70 transition hover:bg-white/[0.06] hover:text-white xl:px-4"
-                        >
-                            <LogIn size={16} />
-                            <span>Giriş</span>
-                        </Link>
+                        {session ? (
+                            <>
+                                <div className="flex max-w-[190px] flex-col px-2">
+                                    <span className="truncate text-[12px] font-semibold text-white">
+                                        {displayName}
+                                    </span>
+                                    <span className="text-[10px] text-[#d2b184]">
+                                        {isAdmin ? "Admin" : "İstifadəçi"}
+                                    </span>
+                                </div>
 
-                        <Link
-                            to="/register"
-                            onClick={closeMenus}
-                            className="group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-[12px] font-semibold text-[#171713] shadow-lg shadow-[#b99561]/10 transition hover:bg-[#d0b184] sm:px-4 xl:px-5"
-                        >
-                            <UserPlus size={15} />
-                            <span>Kayıt Ol</span>
-                            <ArrowRight
-                                size={14}
-                                className="hidden transition-transform group-hover:translate-x-0.5 xl:block"
-                            />
-                        </Link>
+                                <button
+                                    type="button"
+                                    onClick={handleLogout}
+                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[13px] font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                                >
+                                    <LogOut size={16} />
+                                    <span>Çıxış</span>
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    to="/login"
+                                    onClick={closeMenus}
+                                    className="inline-flex h-10 items-center gap-2 rounded-xl px-3 text-[13px] font-medium text-white/70 transition hover:bg-white/[0.06] hover:text-white xl:px-4"
+                                >
+                                    <LogIn size={16} />
+                                    <span>Giriş</span>
+                                </Link>
+
+                                <Link
+                                    to="/register"
+                                    onClick={closeMenus}
+                                    className="group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-[12px] font-semibold text-[#171713] shadow-lg shadow-[#b99561]/10 transition hover:bg-[#d0b184] sm:px-4 xl:px-5"
+                                >
+                                    <UserPlus size={15} />
+                                    <span>Qeydiyyat</span>
+                                    <ArrowRight
+                                        size={14}
+                                        className="hidden transition-transform group-hover:translate-x-0.5 xl:block"
+                                    />
+                                </Link>
+                            </>
+                        )}
                     </div>
 
-                    {/* Mobil menyu düyməsi */}
                     <button
                         type="button"
                         onClick={() => setMenuOpen((open) => !open)}
-                        aria-label={menuOpen ? "Menüyü kapat" : "Menüyü aç"}
+                        aria-label={menuOpen ? "Menyunu bağla" : "Menyunu aç"}
                         aria-expanded={menuOpen}
                         aria-controls="mobile-navigation"
                         className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-white/20 hover:bg-white/[0.08] lg:hidden"
                     >
-                        {menuOpen ? (
-                            <X size={21} />
-                        ) : (
-                            <Menu size={21} />
-                        )}
+                        {menuOpen ? <X size={21} /> : <Menu size={21} />}
                     </button>
                 </div>
             </nav>
 
-            {/* Mobil menyu */}
             <div
                 id="mobile-navigation"
                 aria-hidden={!menuOpen}
-                className={`absolute left-0 right-0 top-full border-b border-white/10 bg-[#191b17] shadow-2xl shadow-black/25 transition-all duration-300 ease-out lg:hidden ${menuOpen
+                className={`absolute left-0 right-0 top-full border-b border-white/10 bg-[#191b17] shadow-2xl shadow-black/25 transition-all duration-300 ease-out lg:hidden ${
+                    menuOpen
                         ? "visible translate-y-0 opacity-100"
                         : "invisible -translate-y-2 pointer-events-none opacity-0"
-                    }`}
+                }`}
             >
                 <div className="mx-auto max-h-[calc(100dvh-76px)] max-w-7xl overflow-y-auto px-4 pb-6 pt-4 sm:px-6">
                     <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
@@ -197,29 +249,55 @@ function Navbar() {
 
                     <div className="my-5 border-t border-white/[0.08]" />
 
-                    {/* Mobil giriş / qeydiyyat */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <Link
-                            to="/login"
-                            onClick={closeMenus}
-                            tabIndex={menuOpen ? 0 : -1}
-                            className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.05]"
-                        >
-                            <LogIn size={17} />
-                            Giriş Yap
-                        </Link>
+                    {session ? (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] p-3">
+                                <span className="grid size-10 place-items-center rounded-xl bg-[#b99561]/15 text-[#d2b184]">
+                                    <UserRound size={20} />
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-white">
+                                        {displayName}
+                                    </p>
+                                    <p className="text-xs text-[#d2b184]">
+                                        {isAdmin ? "Admin" : "İstifadəçi"}
+                                    </p>
+                                </div>
+                            </div>
 
-                        <Link
-                            to="/register"
-                            onClick={closeMenus}
-                            tabIndex={menuOpen ? 0 : -1}
-                            className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-sm font-semibold text-[#171713] transition hover:bg-[#d0b184]"
-                        >
-                            <UserPlus size={17} />
-                            Kayıt Ol
-                        </Link>
-                    </div>
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                tabIndex={menuOpen ? 0 : -1}
+                                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.05]"
+                            >
+                                <LogOut size={17} />
+                                Çıxış et
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                            <Link
+                                to="/login"
+                                onClick={closeMenus}
+                                tabIndex={menuOpen ? 0 : -1}
+                                className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.05]"
+                            >
+                                <LogIn size={17} />
+                                Giriş
+                            </Link>
 
+                            <Link
+                                to="/register"
+                                onClick={closeMenus}
+                                tabIndex={menuOpen ? 0 : -1}
+                                className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-sm font-semibold text-[#171713] transition hover:bg-[#d0b184]"
+                            >
+                                <UserPlus size={17} />
+                                Qeydiyyat
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </div>
         </header>

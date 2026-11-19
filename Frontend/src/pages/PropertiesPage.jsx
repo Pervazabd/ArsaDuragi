@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ArrowDownWideNarrow,
     MapPin,
@@ -6,7 +6,7 @@ import {
     Search,
     SlidersHorizontal,
 } from "lucide-react";
-import { properties } from "../data/properties.js";
+import { apiRequest } from "../services/api.js";
 import DropdownSelect from "../components/DropdownSelect.jsx";
 import PropertyCard from "../components/PropertyCard.jsx";
 
@@ -35,6 +35,45 @@ function FilterField({ label, children }) {
 }
 
 function PropertiesPage() {
+    const [properties, setProperties] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [apiError, setApiError] = useState("");
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadProperties() {
+            try {
+                const data = await apiRequest(
+                    "/properties?page=1&pageSize=12",
+                    { auth: false }
+                );
+
+                if (!cancelled) {
+                    setProperties(
+                        Array.isArray(data)
+                            ? data
+                            : data?.items ?? data?.Items ?? []
+                    );
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setApiError(error.message || "Elanları yükləmək mümkün olmadı.");
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadProperties();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const [filters, setFilters] = useState(initialFilters);
 
     const updateFilter = (key, value) => {
@@ -87,7 +126,7 @@ function PropertiesPage() {
             }
             return new Date(second.listedAt) - new Date(first.listedAt);
         });
-    }, [filters]);
+    }, [filters, properties]);
 
     const activeFilterCount = Object.entries(filters).filter(
         ([key, value]) => key !== "sort" && value !== "",
@@ -344,7 +383,15 @@ function PropertiesPage() {
                             </div>
                         </div>
 
-                        {filteredProperties.length > 0 ? (
+                        {loading ? (
+                            <div className="flex min-h-72 items-center justify-center text-sm text-muted">
+                                Elanlar yüklənir...
+                            </div>
+                        ) : apiError ? (
+                            <div className="flex min-h-72 items-center justify-center text-center text-sm text-red-600">
+                                {apiError}
+                            </div>
+                        ) : filteredProperties.length > 0 ? (
                             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                                 {filteredProperties.map((property) => (
                                     <PropertyCard

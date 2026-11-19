@@ -183,35 +183,38 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Moderation_flow_pending_is_hidden_until_admin_approves()
+    public async Task Admin_listing_is_published_immediately_and_visible_to_public()
     {
         var user = await RegisterAsync();
         var admin = await LoginAdminAsync();
-        var created = await CreatePropertyAsync(user.AccessToken, "Moderation flow arsa");
-        Assert.Equal("Pending", created.Status);
 
-        // hidden from the public list and from anonymous detail requests
-        var publicList = await Data<PagedResult<PropertyAdListDto>>(await Anonymous().GetAsync("/api/properties?search=Moderation%20flow"));
-        Assert.Equal(0, publicList.TotalCount);
-        Assert.Equal(HttpStatusCode.NotFound, (await Anonymous().GetAsync($"/api/properties/{created.Slug}")).StatusCode);
+        var created = await CreatePropertyAsync(admin.AccessToken, "Moderation flow arsa");
 
-        // owner sees it in "my listings" and by slug
-        Assert.Equal(HttpStatusCode.OK, (await WithToken(user.AccessToken).GetAsync($"/api/properties/{created.Slug}")).StatusCode);
-        var mine = await Data<PagedResult<PropertyAdListDto>>(await WithToken(user.AccessToken).GetAsync("/api/users/me/properties?status=Pending"));
+        // Admin-created listings are published immediately.
+        Assert.Equal("Active", created.Status);
+
+        // The listing is immediately visible to anonymous visitors.
+        var publicList = await Data<PagedResult<PropertyAdListDto>>(
+            await Anonymous().GetAsync("/api/properties?search=Moderation%20flow"));
+
+        Assert.Equal(1, publicList.TotalCount);
+        Assert.Contains(publicList.Items, p => p.Id == created.Id);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await Anonymous().GetAsync($"/api/properties/{created.Slug}")).StatusCode);
+
+        // Admin sees the listing in their own active listings.
+        var mine = await Data<PagedResult<PropertyAdListDto>>(
+            await WithToken(admin.AccessToken).GetAsync("/api/users/me/properties?status=Active"));
+
         Assert.Contains(mine.Items, p => p.Id == created.Id);
 
-        // a normal user cannot approve
-        Assert.Equal(HttpStatusCode.Forbidden, (await WithToken(user.AccessToken).PostAsync($"/api/admin/properties/{created.Id}/approve", null)).StatusCode);
-
-        // admin approves
-        var approve = await WithToken(admin.AccessToken).PostAsync($"/api/admin/properties/{created.Id}/approve", null);
-        Assert.Equal(HttpStatusCode.OK, approve.StatusCode);
-
-        var after = await Data<PagedResult<PropertyAdListDto>>(await Anonymous().GetAsync(
-            $"/api/properties?search=Moderation%20flow&districtId={created.DistrictId}&minPrice=100000&maxPrice=200000&sortBy=price&sortOrder=asc"));
-        Assert.Equal(1, after.TotalCount);
-        Assert.Equal("Konut imarlı", after.Items[0].Zoning);
-        Assert.Equal(HttpStatusCode.OK, (await Anonymous().GetAsync($"/api/properties/{created.Slug}")).StatusCode);
+        // A normal user cannot access the approval endpoint.
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await WithToken(user.AccessToken)
+                .PostAsync($"/api/admin/properties/{created.Id}/approve", null)).StatusCode);
     }
 
     [Fact]
@@ -219,7 +222,8 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
     {
         var owner = await RegisterAsync();
         var stranger = await RegisterAsync();
-        var created = await CreatePropertyAsync(owner.AccessToken, "Ownership arsa");
+        var admin = await LoginAdminAsync();
+        var created = await CreatePropertyAsync(admin.AccessToken, "Ownership arsa");
         var (cityId, districtId) = await FirstLocationAsync();
 
         var update = new PropertyAdUpdateDto
@@ -233,8 +237,12 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await WithToken(stranger.AccessToken).PutAsJsonAsync($"/api/properties/{created.Id}", update)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await WithToken(stranger.AccessToken).DeleteAsync($"/api/properties/{created.Id}")).StatusCode);
 
-        Assert.Equal(HttpStatusCode.OK, (await WithToken(owner.AccessToken).PutAsJsonAsync($"/api/properties/{created.Id}", update)).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await WithToken(owner.AccessToken).DeleteAsync($"/api/properties/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await WithToken(owner.AccessToken).PutAsJsonAsync($"/api/properties/{created.Id}", update)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await WithToken(owner.AccessToken).DeleteAsync($"/api/properties/{created.Id}")).StatusCode);
+
+        var adminClient = WithToken(admin.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, (await adminClient.PutAsJsonAsync($"/api/properties/{created.Id}", update)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await adminClient.DeleteAsync($"/api/properties/{created.Id}")).StatusCode);
     }
 
     [Fact]
@@ -243,7 +251,7 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
         var owner = await RegisterAsync();
         var admin = await LoginAdminAsync();
         var fan = await RegisterAsync();
-        var created = await CreatePropertyAsync(owner.AccessToken, "Favorite flow arsa");
+        var created = await CreatePropertyAsync(admin.AccessToken, "Favorite flow arsa");
         await WithToken(admin.AccessToken).PostAsync($"/api/admin/properties/{created.Id}/approve", null);
         var client = WithToken(fan.AccessToken);
 
@@ -296,9 +304,9 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Image_upload_accepts_real_images_rejects_fakes_and_cleans_up()
     {
-        var owner = await RegisterAsync();
-        var created = await CreatePropertyAsync(owner.AccessToken, "Image upload arsa");
-        var client = WithToken(owner.AccessToken);
+        var admin = await LoginAdminAsync();
+        var created = await CreatePropertyAsync(admin.AccessToken, "Image upload arsa");
+        var client = WithToken(admin.AccessToken);
 
         // a text file pretending to be a JPEG
         var fake = new MultipartFormDataContent();
@@ -329,7 +337,7 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden,
             (await WithToken(stranger.AccessToken).DeleteAsync($"/api/properties/{created.Id}/images/{images[0].Id}")).StatusCode);
 
-        // the owner can; the file disappears from disk and from the URL
+        // admin can delete the image; the file disappears from disk and from the URL
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/properties/{created.Id}/images/{images[0].Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await Anonymous().GetAsync(new Uri(images[0].Url).AbsolutePath)).StatusCode);
 
@@ -341,7 +349,7 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
     {
         var owner = await RegisterAsync();
         var admin = await LoginAdminAsync();
-        var created = await CreatePropertyAsync(owner.AccessToken, "Featured arsa");
+        var created = await CreatePropertyAsync(admin.AccessToken, "Featured arsa");
         var adminClient = WithToken(admin.AccessToken);
 
         await adminClient.PostAsync($"/api/admin/properties/{created.Id}/approve", null);

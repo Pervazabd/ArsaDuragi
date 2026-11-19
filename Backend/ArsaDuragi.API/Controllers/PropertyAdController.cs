@@ -3,6 +3,7 @@ using ArsaDuragi.Application.Common;
 using ArsaDuragi.Application.DTOs.PropertyAd;
 using ArsaDuragi.Application.DTOs.PropertyImage;
 using ArsaDuragi.Application.Interfaces.Services;
+using ArsaDuragi.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,7 +40,7 @@ public class PropertyAdController : ApiControllerBase
 
     // ----------------------------------------------------------- authenticated
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] PropertyAdCreateDto dto, CancellationToken ct)
     {
@@ -48,12 +49,12 @@ public class PropertyAdController : ApiControllerBase
             ApiResponse<PropertyAdGetDto>.Ok(created, "Property created successfully"));
     }
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] PropertyAdUpdateDto dto, CancellationToken ct)
         => Success(await _properties.UpdateAsync(id, dto, ct), "Property updated successfully");
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
@@ -61,14 +62,14 @@ public class PropertyAdController : ApiControllerBase
         return NoContent();
     }
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpPut("{id:int}/status")]
     public async Task<IActionResult> ChangeStatus(int id, [FromBody] PropertyAdStatusChangeDto dto, CancellationToken ct)
         => Success(await _properties.ChangeStatusAsync(id, dto, ct), "Property status updated successfully");
 
     // ----------------------------------------------------------- images
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpPost("{id:int}/images")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxRequestBytes)]
@@ -80,7 +81,7 @@ public class PropertyAdController : ApiControllerBase
         return CreatedResponse(result, "Images uploaded successfully");
     }
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpPut("{id:int}/images/{imageId:int}")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxRequestBytes)]
@@ -90,7 +91,7 @@ public class PropertyAdController : ApiControllerBase
         return Success<PropertyImageDto>(result, "Image replaced successfully");
     }
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpDelete("{id:int}/images/{imageId:int}")]
     public async Task<IActionResult> DeleteImage(int id, int imageId, CancellationToken ct)
     {
@@ -98,7 +99,7 @@ public class PropertyAdController : ApiControllerBase
         return NoContent();
     }
 
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     [HttpPut("{id:int}/images/{imageId:int}/main")]
     public async Task<IActionResult> SetMainImage(int id, int imageId, CancellationToken ct)
         => Success(await _images.SetMainImageAsync(id, imageId, ct), "Main image updated successfully");

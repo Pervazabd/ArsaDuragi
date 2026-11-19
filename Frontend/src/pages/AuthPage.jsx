@@ -1,4 +1,6 @@
-import { useState } from "react";
+﻿import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { login, register } from "../services/api";
 import {
     ArrowLeft,
     ArrowRight,
@@ -21,20 +23,49 @@ function AuthPage({ mode }) {
     const isRegister = mode === "register";
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [message, setMessage] = useState("");
+    const navigate = useNavigate();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    function handleSubmit(event) {
+    async function handleSubmit(event) {
         event.preventDefault();
 
+        if (isSubmitting) return;
+
         const formData = new FormData(event.currentTarget);
+
         if (
             isRegister &&
             formData.get("password") !== formData.get("confirmPassword")
         ) {
-            setMessage("Şifrələr uyğun gəlmir. Zəhmət olmasa yenidən yoxlayın.");
+            setMessage("Şifrələr uyğun gəlmir.");
             return;
         }
 
-        setMessage("Bu demo səhifəsində hesab əməliyyatları hələ aktiv deyil.");
+        setIsSubmitting(true);
+        setMessage("");
+
+        try {
+            if (isRegister) {
+                await register({
+                    fullName: formData.get("name"),
+                    email: formData.get("email"),
+                    phoneNumber: formData.get("phone") || null,
+                    password: formData.get("password"),
+                    confirmPassword: formData.get("confirmPassword"),
+                });
+            } else {
+                await login({
+                    email: formData.get("email"),
+                    password: formData.get("password"),
+                });
+            }
+
+            navigate("/");
+        } catch (error) {
+            setMessage(error.message || "Əməliyyat zamanı xəta baş verdi.");
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -276,9 +307,10 @@ function AuthPage({ mode }) {
 
                             <button
                                 type="submit"
+                                disabled={isSubmitting}
                                 className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#292725] px-5 text-sm font-semibold text-white shadow-lg shadow-[#292725]/10 transition hover:bg-[#3b3834] focus:outline-none focus:ring-4 focus:ring-[#b99561]/20"
                             >
-                                {isRegister ? "Hesab yarat" : "Daxil ol"}
+                                {isSubmitting ? "Gözləyin..." : isRegister ? "Hesab yarat" : "Daxil ol"}
                                 <ArrowRight
                                     size={17}
                                     className="transition-transform group-hover:translate-x-1"
