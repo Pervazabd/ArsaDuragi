@@ -10,6 +10,7 @@ import {
 import { Link, useParams } from "react-router-dom";
 import { formatPrice } from "../data/properties.js";
 import { apiRequest } from "../services/api.js";
+import Reveal from "../components/Reveal.jsx";
 
 function PropertyDetailsPage() {
     const { id } = useParams();
@@ -54,17 +55,23 @@ function PropertyDetailsPage() {
 
     if (loading) {
         return (
-            <section className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center px-5">
+            <Reveal
+                as="section"
+                className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center px-5"
+            >
                 <p className="text-sm font-medium text-muted">
                     Elan yüklənir...
                 </p>
-            </section>
+            </Reveal>
         );
     }
 
     if (error || !property) {
         return (
-            <section className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-5 text-center">
+            <Reveal
+                as="section"
+                className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-5 text-center"
+            >
                 <span className="text-sm font-semibold tracking-[0.2em] text-ochre uppercase">
                     Elan tapılmadı
                 </span>
@@ -77,7 +84,7 @@ function PropertyDetailsPage() {
                 >
                     Elanlara qayıt
                 </Link>
-            </section>
+            </Reveal>
         );
     }
 
@@ -92,7 +99,7 @@ function PropertyDetailsPage() {
             </Link>
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.8fr)]">
-                <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+                <Reveal className="overflow-hidden rounded-2xl border border-ink/10 bg-surface">
                     <div className="relative aspect-[1.35] overflow-hidden bg-sand">
                         <img
                             className="size-full object-cover"
@@ -129,9 +136,13 @@ function PropertyDetailsPage() {
                             </p>
                         </div>
                     </div>
-                </div>
+                </Reveal>
 
-                <aside className="h-fit rounded-2xl border border-ink/10 bg-surface p-5 sm:p-7">
+                <Reveal
+                    as="aside"
+                    delay={120}
+                    className="h-fit rounded-2xl border border-ink/10 bg-surface p-5 sm:p-7"
+                >
                     <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.12em] text-ochre uppercase">
                         <span className="size-2 rounded-full bg-ochre" />
                         Satılıq torpaq
@@ -201,7 +212,7 @@ function PropertyDetailsPage() {
                     >
                         Torpaq haqqında məlumat al
                     </a>
-                </aside>
+                </Reveal>
             </div>
         </article>
     );

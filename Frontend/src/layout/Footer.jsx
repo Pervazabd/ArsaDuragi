@@ -1,16 +1,19 @@
 import { Link } from "react-router-dom";
+import Reveal from "../components/Reveal.jsx";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 const currentYear = new Date().getFullYear();
 
 function Footer() {
+    const { t } = useI18n();
     return (
         <footer className="bg-coal-dark text-white" id="contact">
-            <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 sm:py-16 md:grid-cols-[1.4fr_0.7fr_0.9fr] lg:px-12">
+            <Reveal className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 sm:py-16 md:grid-cols-[1.4fr_0.7fr_0.9fr] lg:px-12">
                 <div className="max-w-sm">
                     <a
                         className="group inline-flex items-center gap-3"
                         href="#home"
-                        aria-label="Arsa Durağı ana sayfa"
+                        aria-label={`Arsa Durağı ${t("home")}`}
                     >
                         <span className="grid size-10 place-items-center rounded-full bg-[#b49a77] text-lg font-semibold text-coal-dark transition-transform group-hover:rotate-[-8deg]">
                             A
@@ -23,34 +26,33 @@ function Footer() {
                         </span>
                     </a>
                     <p className="mt-5 max-w-xs text-sm leading-6 text-white/60">
-                        Bakü ve çevresinde gayrimenkul arayışınızın güvenilir
-                        adresi.
+                        {t("footerDescription")}
                     </p>
                     <p className="mt-4 text-sm font-medium tracking-wide text-[#c8a779]">
-                        Doğru arsa, doğru yatırım.
+                        {t("footerTagline")}
                     </p>
                 </div>
 
                 <div className="flex flex-col items-start gap-3 text-sm text-white/65">
                     <strong className="mb-1 text-xs font-semibold tracking-[0.16em] text-white uppercase">
-                        Keşfedin
+                        {t("footerExplore")}
                     </strong>
                     <Link className="transition hover:text-white" to="/">
-                        Ana sayfa
+                        {t("home")}
                     </Link>
                     <Link
                         className="transition hover:text-white"
                         to="/properties"
                     >
-                        İlanlar
+                        {t("listings")}
                     </Link>
                 </div>
 
                 <div className="flex flex-col items-start gap-3 text-sm text-white/65">
                     <strong className="mb-1 text-xs font-semibold tracking-[0.16em] text-white uppercase">
-                        İletişim
+                        {t("footerContact")}
                     </strong>
-                    <span>Bakü, Azerbaycan</span>
+                    <span>{t("footerLocation")}</span>
                     <a
                         className="transition hover:text-white"
                         href="tel:+994501234567"
@@ -64,13 +66,13 @@ function Footer() {
                         info@arsaduragi.az
                     </a>
                 </div>
-            </div>
+            </Reveal>
 
             <div className="border-t border-white/12">
                 <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-5 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
                     <span>© {currentYear} Arsa Durağı</span>
                     <a className="transition hover:text-white/80" href="#home">
-                        Başa dön ↑
+                        {t("footerTop")} ↑
                     </a>
                 </div>
             </div>

@@ -9,6 +9,7 @@ import {
 import { apiRequest } from "../services/api.js";
 import DropdownSelect from "../components/DropdownSelect.jsx";
 import PropertyCard from "../components/PropertyCard.jsx";
+import Reveal from "../components/Reveal.jsx";
 
 const initialFilters = {
     query: "",
@@ -139,7 +140,7 @@ function PropertiesPage() {
     return (
         <div className="min-h-[70vh]">
             <section className="border-b border-ink/10 bg-[#cbc6bd]">
-                <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12">
+                <Reveal className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:px-12">
                     <span className="mb-3 block text-[11px] font-semibold tracking-[0.22em] text-ochre uppercase">
                         Arsa Durağı portföyü
                     </span>
@@ -175,12 +176,15 @@ function PropertiesPage() {
                             aria-label="Arsalarda ara"
                         />
                     </label>
-                </div>
+                </Reveal>
             </section>
 
             <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14 lg:px-12">
                 <div className="grid items-start gap-8 lg:grid-cols-[270px_minmax(0,1fr)]">
-                    <aside className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+                    <Reveal
+                        as="aside"
+                        className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6"
+                    >
                         <div className="flex items-center justify-between border-b border-ink/10 pb-4">
                             <h2 className="flex items-center gap-2 font-semibold text-ink">
                                 <SlidersHorizontal
@@ -328,7 +332,7 @@ function PropertiesPage() {
                             <RotateCcw size={15} />
                             Filtreleri temizle
                         </button>
-                    </aside>
+                    </Reveal>
 
                     <div className="min-w-0">
                         <div className="mb-6 flex flex-col gap-4 border-b border-ink/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -393,11 +397,14 @@ function PropertiesPage() {
                             </div>
                         ) : filteredProperties.length > 0 ? (
                             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                                {filteredProperties.map((property) => (
-                                    <PropertyCard
+                                {filteredProperties.map((property, index) => (
+                                    <Reveal
                                         key={property.id}
-                                        property={property}
-                                    />
+                                        className="h-full"
+                                        delay={(index % 6) * 70}
+                                    >
+                                        <PropertyCard property={property} />
+                                    </Reveal>
                                 ))}
                             </div>
                         ) : (

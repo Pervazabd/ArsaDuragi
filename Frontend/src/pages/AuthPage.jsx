@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import logo from "../assets/arsa-duragi-logo.png";
+import Reveal from "../components/Reveal.jsx";
 
 const fieldClassName =
     "h-12 w-full rounded-xl border border-[#e8e5df] bg-[#fbfaf8] pl-11 pr-4 text-sm text-[#292725] outline-none transition placeholder:text-[#aaa59d] focus:border-[#b99561] focus:ring-4 focus:ring-[#b99561]/10";
@@ -69,7 +70,7 @@ function AuthPage({ mode }) {
     }
 
     return (
-        <main className="min-h-screen bg-[#f4f2ee] px-4 py-5 sm:px-8 sm:py-7">
+        <main className="page-enter min-h-screen bg-[#f4f2ee] px-4 py-5 sm:px-8 sm:py-7">
             <div className="mx-auto flex max-w-[1120px] items-center justify-between">
                 <Link
                     to="/"
@@ -93,7 +94,10 @@ function AuthPage({ mode }) {
             </div>
 
             <section className="mx-auto mt-5 grid max-w-[1120px] overflow-hidden rounded-[28px] bg-white shadow-[0_24px_80px_rgba(39,35,29,0.09)] sm:mt-8 lg:min-h-[680px] lg:grid-cols-[0.92fr_1.08fr]">
-                <aside className="relative isolate flex min-h-[230px] flex-col justify-end overflow-hidden bg-[#22241f] p-7 text-white sm:min-h-[280px] sm:p-10 lg:min-h-full lg:p-12">
+                <Reveal
+                    as="aside"
+                    className="relative isolate flex min-h-[230px] flex-col justify-end overflow-hidden bg-[#22241f] p-7 text-white sm:min-h-[280px] sm:p-10 lg:min-h-full lg:p-12"
+                >
                     <img
                         src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1400&q=85"
                         alt=""
@@ -135,7 +139,7 @@ function AuthPage({ mode }) {
                         <ShieldCheck size={16} className="text-[#d2b184]" />
                         Etibarlı seçim, rahat başlanğıc
                     </div>
-                </aside>
+                </Reveal>
 
                 <div
                     key={mode}

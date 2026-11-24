@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import DropdownSelect from "../components/DropdownSelect.jsx";
 import { getSession, logout as apiLogout } from "../services/api";
 import logo from "../assets/arsa-duragi-logo.png";
+import { languages, useI18n } from "../i18n/I18nContext.jsx";
 import {
     ArrowRight,
     House,
@@ -16,23 +17,16 @@ import {
     UserRound,
 } from "lucide-react";
 
-const navigation = [
-    { label: "Ana Sayfa", href: "/", icon: House },
-    { label: "İlanlar", href: "/properties", icon: Building2 },
-    { label: "İletişim", href: "#contact", icon: Phone },
-];
-
-const languages = [
-    { value: "tr", label: "Türkçe", triggerLabel: "TR" },
-    { value: "az", label: "Azərbaycanca", triggerLabel: "AZ" },
-    { value: "en", label: "English", triggerLabel: "EN" },
-];
-
 function Navbar() {
+    const { language, setLanguage, t } = useI18n();
     const [menuOpen, setMenuOpen] = useState(false);
-    const [language, setLanguage] = useState("tr");
     const [session, setSession] = useState(() => getSession());
     const navigate = useNavigate();
+    const navigation = [
+        { label: t("home"), href: "/", icon: House },
+        { label: t("listings"), href: "/properties", icon: Building2 },
+        { label: t("contact"), href: "/contact", icon: Phone },
+    ];
 
     const isAdmin = session?.roles?.some(
         (role) => String(role).toLowerCase() === "admin"
@@ -92,18 +86,18 @@ function Navbar() {
         }
     };
 
-    const displayName = session?.fullName || session?.email || "İstifadəçi";
+    const displayName = session?.fullName || session?.email || t("user");
 
     return (
         <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#151714]/95 text-white shadow-[0_8px_35px_rgba(0,0,0,0.12)] backdrop-blur-xl">
             <nav
                 className="relative mx-auto flex h-[76px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 xl:px-10"
-                aria-label="Ana navigasyon"
+                aria-label={t("explore")}
             >
                 <Link
                     to="/"
                     onClick={closeMenus}
-                    aria-label="Arsa Durağı ana sayfa"
+                    aria-label={`Arsa Durağı ${t("home")}`}
                     className="group flex h-[72px] w-[148px] shrink-0 items-center overflow-hidden"
                 >
                     <img
@@ -136,9 +130,9 @@ function Navbar() {
 
                 <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                     <DropdownSelect
-                        className="w-[70px]"
+                        className="w-[92px]"
                         variant="navbar"
-                        ariaLabel="Dil seç"
+                        ariaLabel={t("language")}
                         value={language}
                         onChange={setLanguage}
                         options={languages}
@@ -147,12 +141,20 @@ function Navbar() {
                     <div className="hidden items-center gap-2 sm:flex">
                         {session ? (
                             <>
+                                {isAdmin && (
+                                    <Link
+                                        to="/admin"
+                                        className="hidden h-10 items-center rounded-xl border border-[#c5a475]/25 px-3 text-[12px] font-semibold text-[#d7b783] transition hover:bg-[#c5a475]/10 xl:inline-flex"
+                                    >
+                                        Admin Panel
+                                    </Link>
+                                )}
                                 <div className="flex max-w-[190px] flex-col px-2">
                                     <span className="truncate text-[12px] font-semibold text-white">
                                         {displayName}
                                     </span>
                                     <span className="text-[10px] text-[#d2b184]">
-                                        {isAdmin ? "Admin" : "İstifadəçi"}
+                                        {isAdmin ? t("admin") : t("user")}
                                     </span>
                                 </div>
 
@@ -162,7 +164,7 @@ function Navbar() {
                                     className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 px-3 text-[13px] font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white"
                                 >
                                     <LogOut size={16} />
-                                    <span>Çıxış</span>
+                                    <span>{t("logout")}</span>
                                 </button>
                             </>
                         ) : (
@@ -173,7 +175,7 @@ function Navbar() {
                                     className="inline-flex h-10 items-center gap-2 rounded-xl px-3 text-[13px] font-medium text-white/70 transition hover:bg-white/[0.06] hover:text-white xl:px-4"
                                 >
                                     <LogIn size={16} />
-                                    <span>Giriş</span>
+                                    <span>{t("login")}</span>
                                 </Link>
 
                                 <Link
@@ -182,7 +184,7 @@ function Navbar() {
                                     className="group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-[12px] font-semibold text-[#171713] shadow-lg shadow-[#b99561]/10 transition hover:bg-[#d0b184] sm:px-4 xl:px-5"
                                 >
                                     <UserPlus size={15} />
-                                    <span>Qeydiyyat</span>
+                                    <span>{t("register")}</span>
                                     <ArrowRight
                                         size={14}
                                         className="hidden transition-transform group-hover:translate-x-0.5 xl:block"
@@ -195,7 +197,7 @@ function Navbar() {
                     <button
                         type="button"
                         onClick={() => setMenuOpen((open) => !open)}
-                        aria-label={menuOpen ? "Menyunu bağla" : "Menyunu aç"}
+                        aria-label={menuOpen ? t("menuClose") : t("menuOpen")}
                         aria-expanded={menuOpen}
                         aria-controls="mobile-navigation"
                         className="grid size-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-white/20 hover:bg-white/[0.08] lg:hidden"
@@ -216,7 +218,7 @@ function Navbar() {
             >
                 <div className="mx-auto max-h-[calc(100dvh-76px)] max-w-7xl overflow-y-auto px-4 pb-6 pt-4 sm:px-6">
                     <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
-                        Keşfet
+                        {t("discover")}
                     </p>
 
                     <div className="space-y-1">
@@ -251,6 +253,15 @@ function Navbar() {
 
                     {session ? (
                         <div className="space-y-3">
+                            {isAdmin && (
+                                <Link
+                                    to="/admin"
+                                    onClick={closeMenus}
+                                    className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#c5a475]/25 bg-[#c5a475]/10 text-sm font-semibold text-[#d7b783]"
+                                >
+                                    Admin Panel
+                                </Link>
+                            )}
                             <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] p-3">
                                 <span className="grid size-10 place-items-center rounded-xl bg-[#b99561]/15 text-[#d2b184]">
                                     <UserRound size={20} />
@@ -260,7 +271,7 @@ function Navbar() {
                                         {displayName}
                                     </p>
                                     <p className="text-xs text-[#d2b184]">
-                                        {isAdmin ? "Admin" : "İstifadəçi"}
+                                        {isAdmin ? t("admin") : t("user")}
                                     </p>
                                 </div>
                             </div>
@@ -272,7 +283,7 @@ function Navbar() {
                                 className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.05]"
                             >
                                 <LogOut size={17} />
-                                Çıxış et
+                                {t("logout")}
                             </button>
                         </div>
                     ) : (
@@ -284,7 +295,7 @@ function Navbar() {
                                 className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.05]"
                             >
                                 <LogIn size={17} />
-                                Giriş
+                                {t("login")}
                             </Link>
 
                             <Link
@@ -294,7 +305,7 @@ function Navbar() {
                                 className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#b99561] px-3 text-sm font-semibold text-[#171713] transition hover:bg-[#d0b184]"
                             >
                                 <UserPlus size={17} />
-                                Qeydiyyat
+                                {t("register")}
                             </Link>
                         </div>
                     )}
