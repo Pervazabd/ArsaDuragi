@@ -23,21 +23,27 @@ public static class DependencyInjection
 
         // AddIdentityCore (not AddIdentity): we only want users/roles/password hashing, NOT cookie authentication.
         services.AddIdentityCore<User>(options =>
-            {
-                options.User.RequireUniqueEmail = true;
+        {
+            options.User.RequireUniqueEmail = true;
 
-                options.Password.RequiredLength = 8;
-                options.Password.RequireDigit = true;
-                options.Password.RequireLowercase = true;
-                options.Password.RequireUppercase = true;
-                options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequiredLength = 8;
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireUppercase = true;
+            options.Password.RequireNonAlphanumeric = false;
 
-                options.Lockout.AllowedForNewUsers = true;
-                options.Lockout.MaxFailedAccessAttempts = 5;
-                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-            })
+            options.Lockout.AllowedForNewUsers = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+            options.Tokens.PasswordResetTokenProvider = "PasswordReset";
+        })
             .AddRoles<IdentityRole>()
-            .AddEntityFrameworkStores<AppDbContext>();
+            .AddEntityFrameworkStores<AppDbContext>()
+            .AddTokenProvider<DataProtectorTokenProvider<User>>("PasswordReset");
+
+        services.Configure<DataProtectionTokenProviderOptions>(options =>
+            options.TokenLifespan = TimeSpan.FromMinutes(30));
 
         // IUnitOfWork and the DbContext are the same scoped object.
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());

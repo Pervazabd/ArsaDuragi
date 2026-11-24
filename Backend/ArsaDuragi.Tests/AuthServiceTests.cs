@@ -29,13 +29,27 @@ public class AuthServiceTests
         _users.Setup(u => u.GetRolesAsync(It.IsAny<User>())).ReturnsAsync(new List<string> { "User" });
         _uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        _service = new AuthService(_users.Object, _tokens.Object, _jwt.Object, _uow.Object);
+        var proof = new Mock<IRegistrationEmailToken>();
+        proof.Setup(x => x.IsValid("test@gmail.com", "valid-token"))
+            .Returns(true);
+
+        _service = new AuthService(
+            _users.Object,
+            _tokens.Object,
+            _jwt.Object,
+            _uow.Object,
+            Mock.Of<IEmailService>(),
+            proof.Object);
     }
 
     private static RegisterDto ValidRegister() => new()
     {
-        FullName = "Test User", Email = "test@example.com", PhoneNumber = "+994501234567",
-        Password = "Passw0rd1", ConfirmPassword = "Passw0rd1"
+        FullName = "Test User",
+        Email = "test@gmail.com",
+        PhoneNumber = "+994501234567",
+        Password = "Passw0rd1",
+        ConfirmPassword = "Passw0rd1",
+        VerificationToken = "valid-token"
     };
 
     private static User ExistingUser() => new() { Id = "u1", Email = "test@example.com", UserName = "test@example.com", FullName = "Test User" };
@@ -58,10 +72,19 @@ public class AuthServiceTests
     [Fact]
     public async Task Register_with_existing_email_is_a_conflict()
     {
-        _users.Setup(u => u.FindByEmailAsync("test@example.com", It.IsAny<CancellationToken>())).ReturnsAsync(ExistingUser());
+        var dto = ValidRegister();
+        var email = dto.Email.Trim().ToLowerInvariant();
 
-        await Assert.ThrowsAsync<ConflictException>(() => _service.RegisterAsync(ValidRegister()));
-        _users.Verify(u => u.CreateAsync(It.IsAny<User>(), It.IsAny<string>()), Times.Never);
+        _users
+            .Setup(u => u.FindByEmailAsync(email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ExistingUser());
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => _service.RegisterAsync(dto));
+
+        _users.Verify(
+            u => u.CreateAsync(It.IsAny<User>(), It.IsAny<string>()),
+            Times.Never);
     }
 
     [Fact]

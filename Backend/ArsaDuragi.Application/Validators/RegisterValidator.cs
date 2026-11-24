@@ -23,5 +23,7 @@ public class RegisterValidator : AbstractValidator<RegisterDto>
 
         RuleFor(x => x.ConfirmPassword)
             .Equal(x => x.Password).WithMessage("Passwords do not match.");
+
+        RuleFor(x => x.VerificationToken).NotEmpty().MaximumLength(2048);
     }
 }
