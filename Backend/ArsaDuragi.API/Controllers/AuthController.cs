@@ -33,4 +33,26 @@ public class AuthController : ApiControllerBase
         await _auth.LogoutAsync(dto, ct);
         return NoContent();
     }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] EmailRequestDto dto, CancellationToken ct)
+    {
+        await _auth.RequestPasswordResetAsync(dto, ct);
+        return Accepted();
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken ct)
+    {
+        await _auth.ResetPasswordAsync(dto, ct);
+        return NoContent();
+    }
+
+    [HttpPost("register/request-verification")]
+    public async Task<IActionResult> RequestRegistrationVerification(
+        [FromBody] EmailRequestDto dto, CancellationToken ct)
+    {
+        await _auth.RequestRegistrationVerificationAsync(dto, ct);
+        return Accepted();
+    }
 }

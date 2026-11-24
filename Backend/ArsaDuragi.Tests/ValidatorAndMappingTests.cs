@@ -17,7 +17,11 @@ public class ValidatorAndMappingTests
 
     private static RegisterDto Register() => new()
     {
-        FullName = "Test User", Email = "test@example.com", Password = "Passw0rd1", ConfirmPassword = "Passw0rd1"
+        FullName = "Test User",
+        Email = "test@gmail.com",
+        Password = "Passw0rd1",
+        ConfirmPassword = "Passw0rd1",
+        VerificationToken = "valid-token"
     };
 
     [Fact]
@@ -53,10 +57,18 @@ public class ValidatorAndMappingTests
 
     private static PropertyAdCreateDto Property() => new()
     {
-        Title = "Merdakan'da arsa", Description = "A long enough description for this listing.", Address = "Merdakan, Bakü",
-        Price = 100_000, Area = 500, PropertyType = PropertyType.Land, Zoning = PropertyZoning.Residential,
-        Terrain = TerrainType.Flat, RoadAccess = RoadAccessType.AsphaltFrontage,
-        Utilities = new List<UtilityType> { UtilityType.Water }, CityId = 1, DistrictId = 1
+        Title = "Merdakan'da arsa",
+        Description = "A long enough description for this listing.",
+        Address = "Merdakan, Bakü",
+        Price = 100_000,
+        Area = 500,
+        PropertyType = PropertyType.Land,
+        Zoning = PropertyZoning.Residential,
+        Terrain = TerrainType.Flat,
+        RoadAccess = RoadAccessType.AsphaltFrontage,
+        Utilities = new List<UtilityType> { UtilityType.Water },
+        CityId = 1,
+        DistrictId = 1
     };
 
     [Fact]

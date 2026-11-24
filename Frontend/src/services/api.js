@@ -214,6 +214,30 @@ export async function register(userData) {
   return saveSession(data);
 }
 
+export function requestRegistrationVerification(email) {
+  return apiRequest("/auth/register/request-verification", {
+    method: "POST",
+    auth: false,
+    body: { email },
+  });
+}
+
+export function requestPasswordReset(email) {
+  return apiRequest("/auth/forgot-password", {
+    method: "POST",
+    auth: false,
+    body: { email },
+  });
+}
+
+export function resetPassword(resetData) {
+  return apiRequest("/auth/reset-password", {
+    method: "POST",
+    auth: false,
+    body: resetData,
+  });
+}
+
 export async function logout() {
   const session = getSession();
 

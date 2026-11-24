@@ -19,4 +19,6 @@ public interface IUserRepository
     Task SetLockedAsync(User user, bool locked);
 
     Task<PagedResult<User>> GetPagedAsync(string? search, int page, int pageSize, CancellationToken ct = default);
+    Task<string> GeneratePasswordResetTokenAsync(User user);
+    Task<IdentityOperationResult> ResetPasswordAsync(User user, string token, string password);
 }

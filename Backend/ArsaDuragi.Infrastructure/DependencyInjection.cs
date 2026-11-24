@@ -22,6 +22,9 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorageService, LocalFileStorageService>(); // local disk only, by design
         services.AddSingleton<IEmailService, EmailService>();
 
+        services.AddDataProtection();
+        services.AddSingleton<IRegistrationEmailToken, RegistrationEmailToken>();
+
         return services;
     }
 }

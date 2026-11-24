@@ -1,6 +1,12 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, register } from "../services/api";
+import {
+    login,
+    register,
+    requestPasswordReset,
+    requestRegistrationVerification,
+    resetPassword,
+} from "../services/api";
 import {
     ArrowLeft,
     ArrowRight,
@@ -27,16 +33,58 @@ function AuthPage({ mode }) {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const [email, setEmail] = useState("");
+    const [verificationEmail, setVerificationEmail] = useState("");
+    const [resetStep, setResetStep] = useState(null);
+
+    const isReset = resetStep !== null;
+    const isResetConfirmation = resetStep === "confirm";
+    const canRegister =
+        isRegister &&
+        verificationEmail !== "" &&
+        verificationEmail === email.trim().toLowerCase();
+
+    const showPassword =
+        isResetConfirmation || (!isReset && (!isRegister || canRegister));
+
+    const submitLabel = isResetConfirmation
+        ? "Şifrəni yenilə"
+        : isReset || (isRegister && !canRegister)
+          ? "Token göndər"
+          : isRegister
+            ? "Hesab yarat"
+            : "Daxil ol";
+
+    function showResetStep(step, feedback = "") {
+        setResetStep(step);
+        setPasswordVisible(false);
+        setMessage(feedback);
+    }
+
     async function handleSubmit(event) {
         event.preventDefault();
-
         if (isSubmitting) return;
 
-        const formData = new FormData(event.currentTarget);
+        const form = event.currentTarget;
+        const submitter = event.nativeEvent.submitter;
+        const sendVerification =
+            isRegister && (!canRegister || submitter?.value === "verify");
+
+        if (sendVerification && !form.elements.email.reportValidity()) return;
+
+        const formData = new FormData(form);
+        const address = email.trim();
+        const password = formData.get("password");
+        const confirmPassword = formData.get("confirmPassword");
+
+        if (isRegister && !/^[^@\s]+@gmail\.com$/i.test(address)) {
+            setMessage("Qeydiyyat üçün @gmail.com ünvanı daxil edin.");
+            return;
+        }
 
         if (
-            isRegister &&
-            formData.get("password") !== formData.get("confirmPassword")
+            ((isRegister && !sendVerification) || isResetConfirmation) &&
+            password !== confirmPassword
         ) {
             setMessage("Şifrələr uyğun gəlmir.");
             return;
@@ -46,19 +94,45 @@ function AuthPage({ mode }) {
         setMessage("");
 
         try {
+            if (sendVerification) {
+                const normalizedEmail = address.toLowerCase();
+                await requestRegistrationVerification(normalizedEmail);
+                setVerificationEmail(normalizedEmail);
+                setMessage("Qeydiyyatı tamamlamaq üçün Gmail-ə gələn tokeni daxil edin.");
+                return;
+            }
+
+            if (resetStep === "request") {
+                await requestPasswordReset(address);
+                showResetStep(
+                    "confirm",
+                    "Bu ünvanla hesab varsa, sıfırlama tokeni göndəriləcək.",
+                );
+                return;
+            }
+
+            if (isResetConfirmation) {
+                await resetPassword({
+                    email: address,
+                    token: formData.get("token").trim(),
+                    newPassword: password,
+                    confirmPassword,
+                });
+                showResetStep(null, "Şifrəniz yeniləndi. Yeni şifrənizlə daxil olun.");
+                return;
+            }
+
             if (isRegister) {
                 await register({
                     fullName: formData.get("name"),
-                    email: formData.get("email"),
+                    email: address,
                     phoneNumber: formData.get("phone") || null,
-                    password: formData.get("password"),
-                    confirmPassword: formData.get("confirmPassword"),
+                    password,
+                    confirmPassword,
+                    verificationToken: formData.get("token").trim(),
                 });
             } else {
-                await login({
-                    email: formData.get("email"),
-                    password: formData.get("password"),
-                });
+                await login({ email: address, password });
             }
 
             navigate("/");
@@ -150,20 +224,29 @@ function AuthPage({ mode }) {
                             Arsa Durağı
                         </p>
                         <h2 className="mt-3 font-display text-[38px] leading-tight font-medium text-[#292725] sm:text-[44px]">
-                            {isRegister ? "Hesab yaradın" : "Xoş gəlmisiniz"}
+                            {isReset
+                                ? "Şifrəni sıfırlayın"
+                                : isRegister
+                                  ? "Hesab yaradın"
+                                  : "Xoş gəlmisiniz"}
                         </h2>
                         <p className="mt-2 text-sm leading-6 text-[#77726b]">
-                            {isRegister
-                                ? "Elanları izləmək üçün məlumatlarınızı daxil edin."
-                                : "Davam etmək üçün hesabınıza daxil olun."}
+                            {isReset
+                                ? isResetConfirmation
+                                  ? "E-poçtdakı tokeni və yeni şifrənizi daxil edin."
+                                  : "Hesabınızın e-poçt ünvanını daxil edin."
+                                : isRegister
+                                  ? "Elanları izləmək üçün məlumatlarınızı daxil edin."
+                                  : "Davam etmək üçün hesabınıza daxil olun."}
                         </p>
 
                         <form
+                            key={resetStep ?? mode}
                             className="mt-7 space-y-4"
                             onSubmit={handleSubmit}
                             onChange={() => setMessage("")}
                         >
-                            {isRegister && (
+                            {isRegister && canRegister && (
                                 <label className="block">
                                     <span className="mb-2 block text-xs font-semibold text-[#494640]">
                                         Ad və soyad
@@ -194,18 +277,25 @@ function AuthPage({ mode }) {
                                         size={17}
                                         className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[#a19b92]"
                                     />
-                                    <input
-                                        className={fieldClassName}
-                                        type="email"
-                                        name="email"
-                                        autoComplete="email"
-                                        placeholder="name@example.com"
-                                        required
-                                    />
+                                        <input
+                                            className={fieldClassName}
+                                            type="email"
+                                            name="email"
+                                            autoComplete="email"
+                                            placeholder={isRegister ? "ad@gmail.com" : "ad@example.com"}
+                                            value={email}
+                                            onChange={(event) => {
+                                                setEmail(event.target.value);
+                                                setVerificationEmail("");
+                                            }}
+                                            readOnly={isSubmitting || isResetConfirmation}
+                                            maxLength={256}
+                                            required
+                                        />
                                 </span>
                             </label>
 
-                            {isRegister && (
+                            {isRegister && canRegister && (
                                 <label className="block">
                                     <span className="mb-2 block text-xs font-semibold text-[#494640]">
                                         Telefon nömrəsi
@@ -229,50 +319,57 @@ function AuthPage({ mode }) {
                                 </label>
                             )}
 
-                            <label className="block">
-                                <span className="mb-2 block text-xs font-semibold text-[#494640]">
-                                    Şifrə
-                                </span>
-                                <span className="relative block">
-                                    <LockKeyhole
-                                        size={17}
-                                        className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[#a19b92]"
-                                    />
+                            {(canRegister || isResetConfirmation) && (
+                                <label className="block">
+                                    <span className="mb-2 block text-xs font-semibold text-[#494640]">
+                                        {isRegister ? "Gmail təsdiq tokeni" : "Şifrə sıfırlama tokeni"}
+                                    </span>
                                     <input
-                                        className={`${fieldClassName} pr-12`}
-                                        type={passwordVisible ? "text" : "password"}
-                                        name="password"
-                                        autoComplete={
-                                            isRegister
-                                                ? "new-password"
-                                                : "current-password"
-                                        }
-                                        placeholder="Ən azı 8 simvol"
-                                        minLength={8}
+                                        className={`${fieldClassName} pl-4`}
+                                        name="token"
+                                        autoComplete="one-time-code"
+                                        maxLength={2048}
                                         required
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setPasswordVisible((visible) => !visible)
-                                        }
-                                        aria-label={
-                                            passwordVisible
-                                                ? "Şifrəni gizlət"
-                                                : "Şifrəni göstər"
-                                        }
-                                        className="absolute top-1/2 right-3 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-[#918b82] transition hover:bg-[#f0eee9] hover:text-[#494640]"
-                                    >
-                                        {passwordVisible ? (
-                                            <EyeOff size={17} />
-                                        ) : (
-                                            <Eye size={17} />
-                                        )}
-                                    </button>
-                                </span>
-                            </label>
+                                </label>
+                            )}
 
-                            {isRegister && (
+                            {showPassword && (
+                                <label className="block">
+                                    <span className="mb-2 block text-xs font-semibold text-[#494640]">
+                                        {isResetConfirmation ? "Yeni şifrə" : "Şifrə"}
+                                    </span>
+                                    <span className="relative block">
+                                        <LockKeyhole
+                                            size={17}
+                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[#a19b92]"
+                                        />
+                                        <input
+                                            className={`${fieldClassName} pr-12`}
+                                            type={passwordVisible ? "text" : "password"}
+                                            name="password"
+                                            autoComplete={
+                                                isRegister || isResetConfirmation
+                                                    ? "new-password"
+                                                    : "current-password"
+                                            }
+                                            placeholder="Ən azı 8 simvol"
+                                            minLength={8}
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setPasswordVisible((visible) => !visible)}
+                                            aria-label={passwordVisible ? "Şifrəni gizlət" : "Şifrəni göstər"}
+                                            className="absolute top-1/2 right-3 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-[#918b82] transition hover:bg-[#f0eee9] hover:text-[#494640]"
+                                        >
+                                            {passwordVisible ? <EyeOff size={17} /> : <Eye size={17} />}
+                                        </button>
+                                    </span>
+                                </label>
+                            )}
+
+                            {(canRegister || isResetConfirmation) && (
                                 <label className="block">
                                     <span className="mb-2 block text-xs font-semibold text-[#494640]">
                                         Şifrəni təsdiqləyin
@@ -299,6 +396,17 @@ function AuthPage({ mode }) {
                                 </label>
                             )}
 
+                            {!isRegister && (
+                                <button
+                                    type="button"
+                                    className="text-sm font-semibold text-[#8b6a40] hover:underline"
+                                    disabled={isSubmitting}
+                                    onClick={() => showResetStep(isReset ? null : "request")}
+                                >
+                                    {isReset ? "Girişə qayıt" : "Şifrəni unutdum"}
+                                </button>
+                            )}
+
                             {message && (
                                 <p
                                     role="status"
@@ -314,25 +422,36 @@ function AuthPage({ mode }) {
                                 disabled={isSubmitting}
                                 className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#292725] px-5 text-sm font-semibold text-white shadow-lg shadow-[#292725]/10 transition hover:bg-[#3b3834] focus:outline-none focus:ring-4 focus:ring-[#b99561]/20"
                             >
-                                {isSubmitting ? "Gözləyin..." : isRegister ? "Hesab yarat" : "Daxil ol"}
+                                {isSubmitting ? "Gözləyin..." : submitLabel}
                                 <ArrowRight
                                     size={17}
                                     className="transition-transform group-hover:translate-x-1"
                                 />
                             </button>
+                            {canRegister && (
+                                <button
+                                    type="submit"
+                                    value="verify"
+                                    formNoValidate
+                                    className="text-sm font-semibold text-[#8b6a40] hover:underline"
+                                    disabled={isSubmitting}
+                                >
+                                    Tokeni yenidən göndər
+                                </button>
+                            )}
                         </form>
 
-                        <p className="mt-6 text-center text-sm text-[#77726b]">
-                            {isRegister
-                                ? "Artıq hesabınız var?"
-                                : "Hesabınız yoxdur?"}{" "}
-                            <Link
-                                to={isRegister ? "/login" : "/register"}
-                                className="font-semibold text-[#8b6a40] underline-offset-4 transition hover:text-[#5f482d] hover:underline"
-                            >
-                                {isRegister ? "Daxil olun" : "Qeydiyyatdan keçin"}
-                            </Link>
-                        </p>
+                        {!isReset && (
+                            <p className="mt-6 text-center text-sm text-[#77726b]">
+                                {isRegister ? "Artıq hesabınız var?" : "Hesabınız yoxdur?"}{" "}
+                                <Link
+                                    to={isRegister ? "/login" : "/register"}
+                                    className="font-semibold text-[#8b6a40] underline-offset-4 transition hover:text-[#5f482d] hover:underline"
+                                >
+                                    {isRegister ? "Daxil olun" : "Qeydiyyatdan keçin"}
+                                </Link>
+                            </p>
+                        )}
 
                         <p className="mt-8 text-center text-[11px] leading-5 text-[#aaa59d]">
                             Davam etməklə istifadə şərtlərimizi qəbul etmiş
@@ -345,4 +464,6 @@ function AuthPage({ mode }) {
     );
 }
 
-export default AuthPage;
+export default function AuthRoute({ mode }) {
+    return <AuthPage key={mode} mode={mode} />;
+}
