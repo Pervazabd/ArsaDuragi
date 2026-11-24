@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Collections.Concurrent;
+using ArsaDuragi.Application.Interfaces.Services;
 using ArsaDuragi.API.Common;
 using ArsaDuragi.Application.Common;
 using ArsaDuragi.Application.DTOs.Auth;
@@ -37,6 +39,19 @@ public class ApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("RateLimiting__AuthPermitLimit", "100000");
     }
 
+    public async Task<string> RequestVerificationAsync(string email)
+    {
+        using var client = CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register/request-verification",
+            new EmailRequestDto { Email = email });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+        return Services.GetRequiredService<TestEmailService>().TakeToken(email);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -46,10 +61,36 @@ public class ApiFactory : WebApplicationFactory<Program>
             if (descriptor is not null) services.Remove(descriptor);
             services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(_dbName));
 
+            services.AddSingleton<TestEmailService>();
+            services.AddSingleton<IEmailService>(
+                sp => sp.GetRequiredService<TestEmailService>());
+
             // The general flow tests below let customers post (moderation flow). The real default is admin-only,
             // which is covered by AdminOnlyApiFactory / AdminOnlyIntegrationTests.
             services.Configure<ModerationOptions>(o => o.AdminOnlyPosting = false);
         });
+    }
+}
+
+internal sealed class TestEmailService : IEmailService
+{
+    private readonly ConcurrentDictionary<string, string> _messages = new();
+
+    public Task SendAsync(
+        string to, string subject, string htmlBody, CancellationToken ct = default)
+    {
+        _messages[to] = htmlBody;
+        return Task.CompletedTask;
+    }
+
+    public string TakeToken(string email)
+    {
+        Assert.True(_messages.TryRemove(email, out var body),
+            $"No test email was sent to {email}.");
+
+        var html = body!;
+        var start = html.LastIndexOf("<p>", StringComparison.Ordinal) + 3;
+        return WebUtility.HtmlDecode(html[start..^4]);
     }
 }
 
@@ -78,14 +119,23 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
         return body!.Data!;
     }
 
-    private async Task<AuthResponseDto> RegisterAsync(string? email = null)
+    private async Task<AuthResponseDto> RegisterAsync(
+    string? email = null, string? token = null)
     {
-        email ??= $"user-{Guid.NewGuid():N}@test.az";
-        var response = await Anonymous().PostAsJsonAsync("/api/auth/register", new RegisterDto
+        email ??= $"user{Guid.NewGuid():N}@gmail.com";
+        token ??= await _factory.RequestVerificationAsync(email);
+
+        using var client = Anonymous();
+        var response = await client.PostAsJsonAsync("/api/auth/register", new RegisterDto
         {
-            FullName = "Integration User", Email = email, PhoneNumber = "+994501234567",
-            Password = "Passw0rd1", ConfirmPassword = "Passw0rd1"
+            FullName = "Integration User",
+            Email = email,
+            PhoneNumber = "+994501234567",
+            Password = "Passw0rd1",
+            ConfirmPassword = "Passw0rd1",
+            VerificationToken = token
         });
+
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return await Data<AuthResponseDto>(response);
     }
@@ -134,8 +184,9 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Register_login_and_invalid_login()
     {
-        var email = $"login-{Guid.NewGuid():N}@test.az";
-        await RegisterAsync(email);
+        var email = $"login{Guid.NewGuid():N}@gmail.com";
+        var token = await _factory.RequestVerificationAsync(email);
+        await RegisterAsync(email, token);
 
         var ok = await Anonymous().PostAsJsonAsync("/api/auth/login", new LoginDto { Email = email, Password = "Passw0rd1" });
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
@@ -149,17 +200,117 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
 
         var duplicate = await Anonymous().PostAsJsonAsync("/api/auth/register", new RegisterDto
         {
-            FullName = "Dup", Email = email, Password = "Passw0rd1", ConfirmPassword = "Passw0rd1"
+            FullName = "Dup",
+            Email = email,
+            Password = "Passw0rd1",
+            ConfirmPassword = "Passw0rd1",
+            VerificationToken = token,
         });
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
     }
+
+    [Fact]
+    public async Task Registration_rejects_non_gmail_and_tokens_issued_for_other_addresses()
+    {
+        var email = $"user{Guid.NewGuid():N}@gmail.com";
+        var token = await _factory.RequestVerificationAsync(email);
+        using var client = Anonymous();
+
+        var dto = new RegisterDto
+        {
+            FullName = "Test User",
+            Email = email,
+            Password = "Passw0rd1",
+            ConfirmPassword = "Passw0rd1"
+        };
+
+        // Token olmadan qeydiyyat.
+        var noToken = await client.PostAsJsonAsync("/api/auth/register", dto);
+        Assert.Equal(HttpStatusCode.BadRequest, noToken.StatusCode);
+
+        // Gmail xaricindəki ünvanla token sorğusu və qeydiyyat.
+        dto.Email = "example@outlook.com";
+        dto.VerificationToken = token;
+
+        var nonGmailRequest = await client.PostAsJsonAsync(
+            "/api/auth/register/request-verification",
+            new EmailRequestDto { Email = dto.Email });
+        Assert.Equal(HttpStatusCode.BadRequest, nonGmailRequest.StatusCode);
+
+        var nonGmailRegister = await client.PostAsJsonAsync("/api/auth/register", dto);
+        Assert.Equal(HttpStatusCode.BadRequest, nonGmailRegister.StatusCode);
+
+        // Bir Gmail ünvanının tokeni ilə başqa Gmail ünvanını qeydiyyatdan keçirmək.
+        dto.Email = $"other{Guid.NewGuid():N}@gmail.com";
+
+        var wrongAddress = await client.PostAsJsonAsync("/api/auth/register", dto);
+        Assert.Equal(HttpStatusCode.BadRequest, wrongAddress.StatusCode);
+    }
+
+    [Fact]
+    public async Task Password_reset_changes_password_revokes_refresh_token_and_rejects_reuse()
+    {
+        var auth = await RegisterAsync();
+        using var client = Anonymous();
+
+        var unknownAccount = await client.PostAsJsonAsync(
+            "/api/auth/forgot-password",
+            new EmailRequestDto { Email = "unknown@example.com" });
+        Assert.Equal(HttpStatusCode.Accepted, unknownAccount.StatusCode);
+
+        var knownAccount = await client.PostAsJsonAsync(
+            "/api/auth/forgot-password",
+            new EmailRequestDto { Email = auth.Email });
+        Assert.Equal(HttpStatusCode.Accepted, knownAccount.StatusCode);
+
+        var token = _factory.Services
+            .GetRequiredService<TestEmailService>()
+            .TakeToken(auth.Email);
+
+        var reset = new ResetPasswordDto
+        {
+            Email = auth.Email,
+            Token = "invalid-token",
+            NewPassword = "NewPassw0rd",
+            ConfirmPassword = "NewPassw0rd"
+        };
+
+        var invalidReset = await client.PostAsJsonAsync("/api/auth/reset-password", reset);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidReset.StatusCode);
+
+        reset.Token = token;
+        var validReset = await client.PostAsJsonAsync("/api/auth/reset-password", reset);
+        Assert.Equal(HttpStatusCode.NoContent, validReset.StatusCode);
+
+        var reusedToken = await client.PostAsJsonAsync("/api/auth/reset-password", reset);
+        Assert.Equal(HttpStatusCode.BadRequest, reusedToken.StatusCode);
+
+        var oldRefresh = await client.PostAsJsonAsync(
+            "/api/auth/refresh",
+            new RefreshTokenRequestDto { RefreshToken = auth.RefreshToken });
+        Assert.Equal(HttpStatusCode.Unauthorized, oldRefresh.StatusCode);
+
+        var oldPassword = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginDto { Email = auth.Email, Password = "Passw0rd1" });
+        Assert.Equal(HttpStatusCode.Unauthorized, oldPassword.StatusCode);
+
+        var newPassword = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginDto { Email = auth.Email, Password = reset.NewPassword });
+        Assert.Equal(HttpStatusCode.OK, newPassword.StatusCode);
+    }
+
 
     [Fact]
     public async Task Invalid_registration_returns_400_with_the_standard_error_envelope()
     {
         var response = await Anonymous().PostAsJsonAsync("/api/auth/register", new RegisterDto
         {
-            FullName = "X", Email = "nope", Password = "weak", ConfirmPassword = "different"
+            FullName = "X",
+            Email = "nope",
+            Password = "weak",
+            ConfirmPassword = "different"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -228,10 +379,18 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
 
         var update = new PropertyAdUpdateDto
         {
-            Title = "Stolen title", Description = "A long enough description for the update.", Address = "Somewhere",
-            Price = 1, Area = 1, PropertyType = PropertyType.Land, Zoning = PropertyZoning.Residential,
-            Terrain = TerrainType.Flat, RoadAccess = RoadAccessType.RoadFrontage,
-            Utilities = new List<UtilityType>(), CityId = cityId, DistrictId = districtId
+            Title = "Stolen title",
+            Description = "A long enough description for the update.",
+            Address = "Somewhere",
+            Price = 1,
+            Area = 1,
+            PropertyType = PropertyType.Land,
+            Zoning = PropertyZoning.Residential,
+            Terrain = TerrainType.Flat,
+            RoadAccess = RoadAccessType.RoadFrontage,
+            Utilities = new List<UtilityType>(),
+            CityId = cityId,
+            DistrictId = districtId
         };
 
         Assert.Equal(HttpStatusCode.Forbidden, (await WithToken(stranger.AccessToken).PutAsJsonAsync($"/api/properties/{created.Id}", update)).StatusCode);
@@ -403,10 +562,18 @@ public class AdminOnlyIntegrationTests : IClassFixture<AdminOnlyApiFactory>
     [Fact]
     public async Task Customer_cannot_post_but_admin_can_and_customer_sees_the_result()
     {
-        var customerResponse = await WithToken().PostAsJsonAsync("/api/auth/register", new RegisterDto
-        {
-            FullName = "Customer", Email = $"c-{Guid.NewGuid():N}@test.az", Password = "Passw0rd1", ConfirmPassword = "Passw0rd1"
-        });
+        var email = $"customer{Guid.NewGuid():N}@gmail.com";
+        var token = await _factory.RequestVerificationAsync(email);
+
+        var customerResponse = await WithToken().PostAsJsonAsync(
+            "/api/auth/register", new RegisterDto
+            {
+                FullName = "Customer",
+                Email = email,
+                Password = "Passw0rd1",
+                ConfirmPassword = "Passw0rd1",
+                VerificationToken = token
+            });
         Assert.Equal(HttpStatusCode.Created, customerResponse.StatusCode);
         var customer = await Data<AuthResponseDto>(customerResponse);
 
@@ -417,10 +584,18 @@ public class AdminOnlyIntegrationTests : IClassFixture<AdminOnlyApiFactory>
         var districts = await Data<List<DistrictDto>>(await WithToken().GetAsync($"/api/districts?cityId={cities[0].Id}"));
         var dto = new PropertyAdCreateDto
         {
-            Title = "Admin only arsa", Description = "A long enough description for the admin-only test.", Address = "Merdakan, Bakü",
-            Price = 150_000, Area = 600, PropertyType = PropertyType.Land, Zoning = PropertyZoning.Residential,
-            Terrain = TerrainType.Flat, RoadAccess = RoadAccessType.AsphaltFrontage,
-            Utilities = new List<UtilityType> { UtilityType.Water }, CityId = cities[0].Id, DistrictId = districts[0].Id
+            Title = "Admin only arsa",
+            Description = "A long enough description for the admin-only test.",
+            Address = "Merdakan, Bakü",
+            Price = 150_000,
+            Area = 600,
+            PropertyType = PropertyType.Land,
+            Zoning = PropertyZoning.Residential,
+            Terrain = TerrainType.Flat,
+            RoadAccess = RoadAccessType.AsphaltFrontage,
+            Utilities = new List<UtilityType> { UtilityType.Water },
+            CityId = cities[0].Id,
+            DistrictId = districts[0].Id
         };
 
         // customer: forbidden
@@ -439,4 +614,5 @@ public class AdminOnlyIntegrationTests : IClassFixture<AdminOnlyApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await WithToken(customer.AccessToken).DeleteAsync($"/api/properties/{ad.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Created, (await WithToken(customer.AccessToken).PostAsync($"/api/favorites/{ad.Id}", null)).StatusCode);
     }
+
 }

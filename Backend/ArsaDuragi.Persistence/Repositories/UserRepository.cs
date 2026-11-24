@@ -76,4 +76,15 @@ public class UserRepository : IUserRepository
 
         return new PagedResult<User> { Items = items, Page = page, PageSize = pageSize, TotalCount = total };
     }
+    public Task<string> GeneratePasswordResetTokenAsync(User user)
+    => _userManager.GeneratePasswordResetTokenAsync(user);
+
+    public async Task<IdentityOperationResult> ResetPasswordAsync(
+        User user, string token, string password)
+    {
+        var result = await _userManager.ResetPasswordAsync(user, token, password);
+        return new IdentityOperationResult(
+            result.Succeeded,
+            result.Errors.Select(e => e.Description).ToList());
+    }
 }
