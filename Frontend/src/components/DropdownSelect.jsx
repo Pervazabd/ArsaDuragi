@@ -129,6 +129,11 @@ function DropdownSelect({
                                 : "text-sm text-ink"
                         }`}
                 >
+                    {selectedOption?.flag && (
+                        <span className="mr-1.5 text-base leading-none" aria-hidden="true">
+                            {selectedOption.flag}
+                        </span>
+                    )}
                     {selectedOption?.triggerLabel || selectedOption?.label}
                 </span>
                 <ChevronDown
@@ -142,7 +147,7 @@ function DropdownSelect({
             </button>
 
             <div
-                className={`absolute top-[calc(100%+9px)] right-0 left-0 z-[70] origin-top overflow-hidden rounded-2xl border border-[#d9d4ca] bg-[#f7f5f0] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.2)] ring-1 ring-black/[0.04] transition-[opacity,transform,visibility] duration-200 ease-out ${open
+                className={`absolute top-[calc(100%+9px)] z-[70] origin-top overflow-hidden rounded-2xl border border-[#d9d4ca] bg-[#f7f5f0] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.2)] ring-1 ring-black/[0.04] transition-[opacity,transform,visibility] duration-200 ease-out ${navbar ? "right-0 w-[220px]" : "right-0 left-0"} ${open
                         ? "visible translate-y-0 scale-100 opacity-100"
                         : "invisible -translate-y-1.5 scale-[0.98] opacity-0"
                     }`}
@@ -182,9 +187,21 @@ function DropdownSelect({
                                 handleOptionKeyDown(event, index)
                             }
                         >
-                            <span className="min-w-0">
-                                <span className="block truncate text-[13px] font-medium">
-                                    {option.label}
+                            <span className="flex min-w-0 items-center gap-3">
+                                {option.flag && (
+                                    <span className="text-xl leading-none" aria-hidden="true">
+                                        {option.flag}
+                                    </span>
+                                )}
+                                <span className="min-w-0">
+                                    <span className="block truncate text-[13px] font-medium">
+                                        {option.label}
+                                    </span>
+                                    {option.countryLabel && (
+                                        <span className="mt-0.5 block truncate text-[10px] text-muted">
+                                            {option.countryLabel}
+                                        </span>
+                                    )}
                                 </span>
                                 {option.description && (
                                     <span className="mt-0.5 block text-[10px] text-muted">

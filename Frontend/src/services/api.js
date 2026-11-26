@@ -256,3 +256,19 @@ export async function logout() {
     clearSession();
   }
 }
+
+export function getMyFavoriteIds() {
+  return apiRequest("/favorites/ids");
+}
+
+export function getMyFavorites(page = 1, pageSize = 50) {
+  return apiRequest(`/favorites?page=${page}&pageSize=${pageSize}`);
+}
+
+export function addFavorite(propertyId) {
+  return apiRequest(`/favorites/${propertyId}`, { method: "POST" });
+}
+
+export function removeFavorite(propertyId) {
+  return apiRequest(`/favorites/${propertyId}`, { method: "DELETE" });
+}

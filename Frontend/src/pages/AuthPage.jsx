@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     login,
     register,
@@ -30,6 +30,7 @@ function AuthPage({ mode }) {
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [message, setMessage] = useState("");
     const navigate = useNavigate();
+    const location = useLocation();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [email, setEmail] = useState("");
@@ -134,7 +135,14 @@ function AuthPage({ mode }) {
                 await login({ email: address, password });
             }
 
-            navigate("/");
+            const returnPath = location.state?.from;
+            navigate(
+                typeof returnPath === "string" &&
+                    returnPath.startsWith("/") &&
+                    !returnPath.startsWith("//")
+                    ? returnPath
+                    : "/",
+            );
         } catch (error) {
             setMessage(error.message || "Əməliyyat zamanı xəta baş verdi.");
         } finally {

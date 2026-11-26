@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ArrowDownWideNarrow,
     ArrowRight,
@@ -11,9 +11,11 @@ import {
     X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { properties } from "../data/properties.js";
+import { apiRequest } from "../services/api.js";
 import DropdownSelect from "./DropdownSelect.jsx";
 import PropertyCard from "./PropertyCard.jsx";
+import Reveal from "./Reveal.jsx";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 const districts = [
     "Bilecik Merkez",
@@ -26,20 +28,45 @@ const districts = [
     "Yenipazar",
 ];
 
-const landTypes = [
-    { value: "all", label: "Tüm arazi türleri" },
-    { value: "arsa", label: "Arsa" },
-    { value: "tarla", label: "Tarla" },
-    { value: "bağ", label: "Bağ / Bahçe" },
-    { value: "yatırım", label: "Yatırımlık arazi" },
-];
-
 function Products() {
+    const { t } = useI18n();
+    const [properties, setProperties] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
     const [search, setSearch] = useState("");
     const [district, setDistrict] = useState("all");
     const [landType, setLandType] = useState("all");
     const [sort, setSort] = useState("featured");
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const translatedLandTypes = [
+        { value: "all", label: t("allLandTypes") },
+        { value: "arsa", label: t("land") },
+        { value: "tarla", label: t("field") },
+        { value: "bağ", label: t("garden") },
+        { value: "yatırım", label: t("investmentLandType") },
+    ];
+
+    useEffect(() => {
+        let isCurrent = true;
+
+        apiRequest("/properties/featured?take=9", { auth: false })
+            .then((data) => {
+                if (!Array.isArray(data)) {
+                    throw new Error("Elan siyahısı düzgün formatda deyil.");
+                }
+                if (isCurrent) setProperties(data);
+            })
+            .catch((error) => {
+                if (isCurrent) setLoadError(error.message);
+            })
+            .finally(() => {
+                if (isCurrent) setIsLoading(false);
+            });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, []);
 
     const featuredProperties = useMemo(() => {
         let result = properties.filter((property) => property.featured);
@@ -117,7 +144,7 @@ function Products() {
         }
 
         return result;
-    }, [search, district, landType, sort]);
+    }, [properties, search, district, landType, sort]);
 
     const activeFilterCount = [
         district !== "all",
@@ -138,23 +165,22 @@ function Products() {
         >
             <div className="mx-auto max-w-7xl">
                 {/* Section heading */}
-                <div className="mb-9 flex flex-col gap-5 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
+                <Reveal className="mb-9 flex flex-col gap-5 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <span className="mb-4 inline-flex items-center gap-2 text-[10px] font-bold tracking-[0.22em] text-[#a48454] uppercase sm:text-xs">
                             <span className="h-px w-7 bg-[#b99561]" />
-                            Arsa Durağı seçkisi
+                            {t("productsLabel")}
                         </span>
 
                         <h2 className="max-w-2xl text-3xl leading-tight font-medium tracking-[-0.045em] text-[#22251f] sm:text-4xl lg:text-5xl">
-                            Geleceğe yatırım,
+                            {t("productsTitle1")}
                             <span className="font-serif italic text-[#a48454]">
-                                {" "}doğru arazide.
+                                {" "}{t("productsTitle2")}
                             </span>
                         </h2>
 
                         <p className="mt-4 max-w-xl text-sm leading-7 text-[#77776f] sm:text-base">
-                            Bilecik ve çevresindeki arsa, tarla ve yatırım
-                            fırsatlarını keşfedin.
+                            {t("productsDescription")}
                         </p>
                     </div>
 
@@ -162,16 +188,16 @@ function Products() {
                         to="/properties"
                         className="group inline-flex min-h-11 items-center gap-3 self-start rounded-xl border border-[#dedbd2] bg-white px-4 py-3 text-sm font-semibold text-[#292b25] transition duration-300 hover:border-[#b99561] hover:bg-[#fbf8f1] sm:self-auto"
                     >
-                        Tüm ilanlar
+                        {t("allListings")}
                         <ArrowRight
                             size={16}
                             className="transition-transform group-hover:translate-x-1"
                         />
                     </Link>
-                </div>
+                </Reveal>
 
                 {/* Search and filter toolbar */}
-                <div className="mb-8 rounded-2xl border border-[#e8e5dc] bg-white p-3 shadow-[0_8px_35px_rgba(30,30,20,0.035)] sm:p-4">
+                <Reveal className="mb-8 rounded-2xl border border-[#e8e5dc] bg-white p-3 shadow-[0_8px_35px_rgba(30,30,20,0.035)] sm:p-4" delay={80}>
                     <div className="flex flex-col gap-3 md:flex-row">
                         <label className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-xl border border-[#eeece5] bg-[#faf9f6] px-4 transition focus-within:border-[#b99561] focus-within:bg-white">
                             <Search
@@ -182,8 +208,8 @@ function Products() {
                                 type="search"
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
-                                placeholder="İlan, arsa türü veya konum ara..."
-                                aria-label="İlanlarda ara"
+                                placeholder={t("searchPlaceholder")}
+                                aria-label={t("searchAria")}
                                 className="min-w-0 flex-1 bg-transparent py-3 text-sm text-[#252720] outline-none placeholder:text-[#aaa99f]"
                             />
 
@@ -191,7 +217,7 @@ function Products() {
                                 <button
                                     type="button"
                                     onClick={() => setSearch("")}
-                                    aria-label="Aramayı temizle"
+                                    aria-label={t("clearSearch")}
                                     className="rounded-full p-1 text-[#77776f] hover:bg-black/5"
                                 >
                                     <X size={15} />
@@ -210,7 +236,7 @@ function Products() {
                                 }`}
                         >
                             <SlidersHorizontal size={17} />
-                            Filtrele
+                            {t("filter")}
                             {activeFilterCount > 0 && (
                                 <span className="grid size-5 place-items-center rounded-full bg-[#b99561] text-[10px] text-white">
                                     {activeFilterCount}
@@ -233,23 +259,23 @@ function Products() {
                                 variant="compact"
                                 value={sort}
                                 onChange={setSort}
-                                aria-label="İlanları sırala"
+                                aria-label={t("sortAria")}
                                 options={[
                                     {
                                         value: "featured",
-                                        label: "Öne çıkanlar",
+                                        label: t("sortFeatured"),
                                     },
                                     {
                                         value: "priceAsc",
-                                        label: "Fiyat: Artan",
+                                        label: t("sortPriceAsc"),
                                     },
                                     {
                                         value: "priceDesc",
-                                        label: "Fiyat: Azalan",
+                                        label: t("sortPriceDesc"),
                                     },
                                     {
                                         value: "areaDesc",
-                                        label: "Alan: Büyükten küçüğe",
+                                        label: t("sortAreaDesc"),
                                     },
                                 ]}
                             />
@@ -273,17 +299,17 @@ function Products() {
                                             size={14}
                                             className="mr-1 inline text-[#a48454]"
                                         />
-                                        İlçe / Bölge
+                                        {t("region")}
                                     </span>
                                     <DropdownSelect
                                         className="mt-2"
                                         value={district}
                                         onChange={setDistrict}
-                                        ariaLabel="Bölgeye göre filtrele"
+                                        ariaLabel={t("region")}
                                         options={[
                                             {
                                                 value: "all",
-                                                label: "Tüm bölgeler",
+                                                label: t("allRegions"),
                                             },
                                             ...districts.map((item) => ({
                                                 value: item,
@@ -299,14 +325,14 @@ function Products() {
                                             size={14}
                                             className="mr-1 inline text-[#a48454]"
                                         />
-                                        Arazi türü
+                                        {t("landType")}
                                     </span>
                                     <DropdownSelect
                                         className="mt-2"
                                         value={landType}
                                         onChange={setLandType}
-                                        ariaLabel="Arazi türüne göre filtrele"
-                                        options={landTypes}
+                                        ariaLabel={t("landType")}
+                                        options={translatedLandTypes}
                                     />
                                 </div>
                             </div>
@@ -318,12 +344,12 @@ function Products() {
                                     className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#8b6c41] transition hover:text-[#49371f]"
                                 >
                                     <X size={14} />
-                                    Filtreleri temizle
+                                    {t("clearFilters")}
                                 </button>
                             )}
                         </div>
                     </div>
-                </div>
+                </Reveal>
 
                 {/* Results count */}
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -331,23 +357,37 @@ function Products() {
                         <span className="font-semibold text-[#252720]">
                             {featuredProperties.length}
                         </span>{" "}
-                        öne çıkan ilan
+                        {t("featuredCount")}
                     </p>
 
                     <span className="inline-flex items-center gap-2 text-[11px] font-medium text-[#89877e]">
                         <span className="size-1.5 rounded-full bg-[#9aab7b]" />
-                        Bilecik ve çevresi
+                        {t("andAround")}
                     </span>
                 </div>
 
                 {/* Property cards */}
-                {featuredProperties.length > 0 ? (
+                {isLoading ? (
+                    <div className="rounded-2xl border border-[#e8e5dc] bg-white px-5 py-14 text-center text-sm text-[#77776f]">
+                        {t("loadingListings")}
+                    </div>
+                ) : loadError ? (
+                    <div
+                        role="alert"
+                        className="rounded-2xl border border-red-200 bg-red-50 px-5 py-8 text-center text-sm text-red-700"
+                    >
+                        {loadError}
+                    </div>
+                ) : featuredProperties.length > 0 ? (
                     <div className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                        {featuredProperties.map((property) => (
-                            <PropertyCard
+                        {featuredProperties.map((property, index) => (
+                            <Reveal
                                 key={property.id}
-                                property={property}
-                            />
+                                className="h-full"
+                                delay={(index % 6) * 80}
+                            >
+                                <PropertyCard property={property} />
+                            </Reveal>
                         ))}
                     </div>
                 ) : (
@@ -357,12 +397,11 @@ function Products() {
                         </span>
 
                         <h3 className="mt-5 text-lg font-semibold text-[#252720]">
-                            Aramanıza uygun ilan bulunamadı
+                            {t("noResultsTitle")}
                         </h3>
 
                         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#77776f]">
-                            Farklı bir ilçe veya arazi türü seçerek yeniden
-                            deneyebilirsiniz.
+                            {t("noResultsText")}
                         </p>
 
                         <button
@@ -370,7 +409,7 @@ function Products() {
                             onClick={resetFilters}
                             className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#252720] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#3b3d34]"
                         >
-                            Filtreleri temizle
+                            {t("clearFilters")}
                             <ArrowRight size={15} />
                         </button>
                     </div>

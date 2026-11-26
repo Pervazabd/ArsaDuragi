@@ -1,27 +1,57 @@
-import Layout from "../layout/clinet/layout.jsx";
-import Home from "../pages/Home.jsx";
-import Products from "../pages/Products.jsx";
-import NotFound from "../pages/NotFound.jsx";
-import AboutUs from "../pages/AboutUs.jsx";
-import Map from "../pages/Map.jsx";
-import Admin from "../pages/Admin.jsx";
-import ProductDetail from "../pages/ProductDetail.jsx";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
-const routes = [
-    { path: "/admin/*", element: <Admin /> },
+import Layout from "../layout/Layout.jsx";
+import Hero from "../components/Hero.jsx";
+import Products from "../components/Products.jsx";
+
+import AuthPage from "../pages/AuthPage.jsx";
+import PropertiesPage from "../pages/PropertiesPage.jsx";
+import PropertyDetailsPage from "../pages/PropertyDetailsPage.jsx";
+import Contact from "../pages/Contact.jsx";
+import FavoritesPage from "../pages/FavoritesPage.jsx";
+import NotFoundPage from "../pages/NotFoundPage.jsx";
+import AdminLayout from "../pages/admin/AdminLayout.jsx";
+import AdminHome from "../pages/admin/admin.jsx";
+import AdminListings from "../pages/admin/AdminListings.jsx";
+import AdminUsers from "../pages/admin/AdminUsers.jsx";
+import AdminLocations from "../pages/admin/AdminLocations.jsx";
+
+function HomePage() {
+    return (
+        <>
+            <Hero />
+            <Products />
+        </>
+    );
+}
+
+const router = createBrowserRouter([
+    { path: "/login", element: <AuthPage mode="login" /> },
+    { path: "/register", element: <AuthPage mode="register" /> },
+    {
+        path: "/admin",
+        element: <AdminLayout />,
+        children: [
+            { index: true, element: <AdminHome /> },
+            { path: "elanlar", element: <AdminListings /> },
+            { path: "istifadeciler", element: <AdminUsers /> },
+            { path: "yerler", element: <AdminLocations /> },
+        ],
+    },
     {
         path: "/",
         element: <Layout />,
         children: [
-            { index: true, element: <Home /> },
-            { path: "products", element: <Products /> },
-            { path: "products/:id", element: <ProductDetail /> },
-            { path: "properties", element: <Products /> },
-            { path: "about-us", element: <AboutUs /> },
-            { path: "map", element: <Map /> },
-            { path: "*", element: <NotFound /> },
+            { index: true, element: <HomePage /> },
+            { path: "properties", element: <PropertiesPage /> },
+            { path: "properties/:id", element: <PropertyDetailsPage /> },
+            { path: "contact", element: <Contact /> },
+            { path: "favorites", element: <FavoritesPage /> },
+            { path: "products", element: <Navigate to="/properties" replace /> },
+            { path: "products/:id", element: <Navigate to="/properties" replace /> },
+            { path: "*", element: <NotFoundPage /> },
         ],
     },
-];
+]);
 
-export default routes;
+export default router;

@@ -8,8 +8,10 @@ import {
     MoveUpRight,
     ShieldCheck,
 } from "lucide-react";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 function Hero() {
+    const { t } = useI18n();
     return (
         <section
             id="home"
@@ -38,30 +40,34 @@ function Hero() {
             <div className="mx-auto flex min-h-[650px] max-w-7xl flex-col justify-center px-5 pb-28 pt-20 sm:min-h-[720px] sm:px-8 sm:pb-32 lg:min-h-[760px] lg:px-12">
                 <div className="max-w-4xl">
                     {/* Main heading */}
-                    <h1 className="max-w-4xl text-[clamp(2.8rem,7.5vw,6.5rem)] leading-[1.04] font-medium tracking-[-0.055em] text-white">
-                        Geleceğinizi
+                    <h1 className="motion-rise max-w-4xl text-[clamp(2.8rem,7.5vw,6.5rem)] leading-[1.04] font-medium tracking-[-0.055em] text-white">
+                        {t("heroTitle1")}
                         <br />
                         <span className="font-serif font-normal italic text-[#d2b184]">
-                            doğru toprakta
+                            {t("heroTitle2")}
                         </span>
                         <br />
-                        şekillendirin.
+                        {t("heroTitle3")}
                     </h1>
 
                     {/* Description */}
-                    <p className="mt-6 max-w-xl text-sm leading-7 text-white/70 sm:mt-8 sm:text-base sm:leading-8 lg:text-lg">
-                        Hayalinizdeki projeye uygun arsa ve arazileri keşfedin.
-                        Doğru lokasyonu bulun, yatırımınıza sağlam bir
-                        başlangıç yapın.
+                    <p
+                        className="motion-rise mt-6 max-w-xl text-sm leading-7 text-white/70 sm:mt-8 sm:text-base sm:leading-8 lg:text-lg"
+                        style={{ animationDelay: "120ms" }}
+                    >
+                        {t("heroDescription")}
                     </p>
 
                     {/* CTA buttons */}
-                    <div className="mt-8 flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center sm:mt-10">
+                    <div
+                        className="motion-rise mt-8 flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center sm:mt-10"
+                        style={{ animationDelay: "220ms" }}
+                    >
                         <a
                             href="#properties"
                             className="group inline-flex min-h-[54px] items-center justify-center gap-4 rounded-xl bg-[#c5a475] px-6 py-4 text-sm font-semibold text-[#191914] shadow-lg shadow-black/10 transition duration-300 hover:-translate-y-0.5 hover:bg-[#d7b98d] sm:px-7"
                         >
-                            Arsaları Keşfedin
+                            {t("heroExplore")}
                             <ArrowUpRight
                                 size={18}
                                 className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
@@ -72,7 +78,7 @@ function Hero() {
                             href="#about"
                             className="group inline-flex min-h-[54px] items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/[0.04] px-6 py-4 text-sm font-medium text-white/90 backdrop-blur-sm transition duration-300 hover:border-white/35 hover:bg-white/[0.09] sm:px-7"
                         >
-                            Bizi Tanıyın
+                            {t("heroAbout")}
                             <ArrowRight
                                 size={17}
                                 className="text-[#d2b184] transition-transform duration-300 group-hover:translate-x-1"
@@ -81,13 +87,16 @@ function Hero() {
                     </div>
 
                     {/* Trust indicators */}
-                    <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 sm:mt-12 sm:gap-x-8">
+                    <div
+                        className="motion-rise mt-10 flex flex-wrap gap-x-6 gap-y-3 sm:mt-12 sm:gap-x-8"
+                        style={{ animationDelay: "320ms" }}
+                    >
                         <div className="flex items-center gap-2 text-xs text-white/65 sm:text-sm">
                             <ShieldCheck
                                 size={17}
                                 className="shrink-0 text-[#d2b184]"
                             />
-                            Güvenilir ilanlar
+                            {t("trustedListings")}
                         </div>
 
                         <div className="flex items-center gap-2 text-xs text-white/65 sm:text-sm">
@@ -95,7 +104,7 @@ function Hero() {
                                 size={17}
                                 className="shrink-0 text-[#d2b184]"
                             />
-                            Doğru lokasyon
+                            {t("rightLocation")}
                         </div>
 
                         <div className="flex items-center gap-2 text-xs text-white/65 sm:text-sm">
@@ -103,13 +112,16 @@ function Hero() {
                                 size={17}
                                 className="shrink-0 text-[#d2b184]"
                             />
-                            Yatırıma uygun arsalar
+                            {t("investmentLand")}
                         </div>
                     </div>
                 </div>
 
                 {/* Floating location card */}
-                <div className="absolute bottom-6 right-5 left-5 sm:bottom-8 sm:right-8 sm:left-auto lg:bottom-10 lg:right-12">
+                <div
+                    className="motion-rise absolute bottom-6 right-5 left-5 sm:bottom-8 sm:right-8 sm:left-auto lg:bottom-10 lg:right-12"
+                    style={{ animationDelay: "420ms" }}
+                >
                     <div className="ml-auto flex max-w-sm items-center gap-4 rounded-2xl border border-white/15 bg-[#191b17]/75 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-5">
                         <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-[#c5a475]/20 bg-[#c5a475]/10 text-[#d2b184]">
                             <MapPin size={23} strokeWidth={1.6} />
@@ -117,21 +129,21 @@ function Hero() {
 
                         <div className="min-w-0 flex-1">
                             <p className="text-[10px] font-medium tracking-[0.17em] text-white/45 uppercase">
-                                Doğru yerden başlayın
+                                {t("locationStart")}
                             </p>
 
                             <p className="mt-1 text-sm font-semibold text-white sm:text-base">
-                                Size uygun araziyi bulun
+                                {t("findLand")}
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-white/55">
-                                Seçenekleri keşfedin, geleceğinizi planlayın.
+                                {t("locationText")}
                             </p>
                         </div>
 
                         <a
                             href="#properties"
-                            aria-label="Arsaları keşfet"
+                            aria-label={t("heroExplore")}
                             className="grid size-10 shrink-0 place-items-center rounded-full border border-white/15 text-white/80 transition hover:border-[#c5a475] hover:bg-[#c5a475] hover:text-[#191914]"
                         >
                             <MoveUpRight size={18} />
@@ -144,10 +156,10 @@ function Hero() {
                     href="#properties"
                     className="absolute bottom-10 left-8 hidden items-center gap-3 text-[10px] font-medium tracking-[0.2em] text-white/45 uppercase transition hover:text-[#d2b184] lg:flex lg:left-12"
                 >
-                    <span className="grid size-9 place-items-center rounded-full border border-white/15">
+                    <span className="scroll-nudge grid size-9 place-items-center rounded-full border border-white/15">
                         <ArrowDown size={15} />
                     </span>
-                    Aşağı kaydırın
+                    {t("scrollDown")}
                 </a>
             </div>
         </section>

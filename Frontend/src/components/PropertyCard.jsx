@@ -8,59 +8,71 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatPrice } from "../data/properties.js";
+import { useI18n } from "../i18n/I18nContext.jsx";
+import FavoriteButton from "./FavoriteButton.jsx";
 
 function PropertyCard({ property }) {
+    const { t } = useI18n();
     const area = Number(property.area) || 0;
+    const propertyId = Number(property.id);
+    const canFavorite = Number.isSafeInteger(propertyId) && propertyId > 0;
 
     return (
         <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#e8e5dc] bg-white transition duration-300 hover:-translate-y-1 hover:border-[#d4c3a6] hover:shadow-[0_20px_50px_rgba(38,38,26,0.09)]">
-            {/* Arazi görseli */}
-            <Link
-                to={`/properties/${property.id}`}
-                aria-label={`${property.title} ilanını incele`}
-                className="relative block overflow-hidden bg-[#e9e7dc]"
-            >
-                <div className="aspect-[1.4] overflow-hidden">
-                    <img
-                        src={property.image}
-                        alt={`${property.title} - arazi görünümü`}
-                        loading="lazy"
-                        className="size-full object-cover transition duration-700 ease-out group-hover:scale-[1.06]"
-                    />
-                </div>
+            <div className="relative overflow-hidden bg-[#e9e7dc]">
+                <Link
+                    to={`/properties/${property.slug || property.id}`}
+                    aria-label={`${property.title} ilanını incele`}
+                    className="relative block"
+                >
+                    <div className="aspect-[1.4] overflow-hidden">
+                        <img
+                            src={property.image}
+                            alt={`${property.title} - arazi görünümü`}
+                            loading="lazy"
+                            className="size-full object-cover transition duration-700 ease-out group-hover:scale-[1.06]"
+                        />
+                    </div>
 
-                {/* Görsel overlay */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
 
-                <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-[#191b17]/85 px-3 py-1.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md">
-                        <LandPlot size={13} className="text-[#d2b184]" />
-                        {property.type || "Arsa"}
+                    <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-[#191b17]/85 px-3 py-1.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-md">
+                            <LandPlot size={13} className="text-[#d2b184]" />
+                            {property.type || t("land")}
+                        </span>
+
+                        {property.featured && (
+                            <span className="rounded-full bg-[#d2b184] px-3 py-1.5 text-[10px] font-bold text-[#24251e]">
+                                {t("featured")}
+                            </span>
+                        )}
+                    </div>
+
+                    <span className="absolute bottom-4 left-4 inline-flex max-w-[85%] items-center gap-1.5 truncate text-xs font-medium text-white">
+                        <MapPin size={14} className="shrink-0 text-[#e1c69a]" />
+                        <span className="truncate">{property.address}</span>
                     </span>
 
-                    {property.featured && (
-                        <span className="rounded-full bg-[#d2b184] px-3 py-1.5 text-[10px] font-bold text-[#24251e]">
-                            Öne Çıkan
-                        </span>
-                    )}
-                </div>
+                    <span className="absolute bottom-3 right-3 grid size-10 place-items-center rounded-full border border-white/30 bg-white/15 text-white backdrop-blur-md transition duration-300 group-hover:border-[#d2b184] group-hover:bg-[#d2b184] group-hover:text-[#202119]">
+                        <ArrowUpRight size={19} />
+                    </span>
+                </Link>
 
-                <span className="absolute bottom-4 left-4 inline-flex max-w-[85%] items-center gap-1.5 truncate text-xs font-medium text-white">
-                    <MapPin size={14} className="shrink-0 text-[#e1c69a]" />
-                    <span className="truncate">{property.address}</span>
-                </span>
-
-                <span className="absolute bottom-3 right-3 grid size-10 place-items-center rounded-full border border-white/30 bg-white/15 text-white backdrop-blur-md transition duration-300 group-hover:border-[#d2b184] group-hover:bg-[#d2b184] group-hover:text-[#202119]">
-                    <ArrowUpRight size={19} />
-                </span>
-            </Link>
+                {canFavorite && (
+                    <FavoriteButton
+                        propertyId={propertyId}
+                        className="absolute right-4 top-4 z-10"
+                    />
+                )}
+            </div>
 
             {/* Kart içeriği */}
             <div className="flex flex-1 flex-col p-5 sm:p-6">
                 <div className="flex items-center justify-between gap-3">
                     <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] text-[#9a7b4d] uppercase">
                         <span className="size-1.5 rounded-full bg-[#b99561]" />
-                        {property.transaction || "Satılık"}
+                        {property.transaction || t("forSale")}
                     </span>
 
                     {property.zoning && (
@@ -81,7 +93,7 @@ function PropertyCard({ property }) {
 
                     <div className="min-w-0">
                         <p className="text-[10px] font-medium tracking-wide text-[#89877e]">
-                            Toplam arazi alanı
+                            {t("totalLandArea")}
                         </p>
 
                         <p className="mt-0.5 text-base font-semibold text-[#292b24]">
@@ -94,7 +106,7 @@ function PropertyCard({ property }) {
 
                     <div className="ml-auto text-right">
                         <p className="text-[10px] text-[#89877e]">
-                            Metrekare fiyatı
+                            {t("pricePerSquareMeter")}
                         </p>
 
                         <p className="mt-0.5 text-sm font-semibold text-[#55564e]">
@@ -111,7 +123,7 @@ function PropertyCard({ property }) {
                 <div className="mt-auto flex items-end justify-between gap-3 border-t border-[#eeece5] pt-5 mt-5">
                     <div className="min-w-0">
                         <p className="mb-1 text-[10px] font-medium tracking-wide text-[#89877e]">
-                            Satış fiyatı
+                            {t("salePrice")}
                         </p>
 
                         <p className="text-xl font-bold tracking-[-0.035em] text-[#262820] sm:text-2xl">
@@ -123,10 +135,10 @@ function PropertyCard({ property }) {
                     </div>
 
                     <Link
-                        to={`/properties/${property.id}`}
+                        to={`/properties/${property.slug || property.id}`}
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#252720] px-3.5 py-3 text-xs font-semibold text-white transition hover:bg-[#a48454] sm:px-4"
                     >
-                        İncele
+                        {t("viewListing")}
                         <ArrowUpRight size={15} />
                     </Link>
                 </div>
@@ -134,7 +146,7 @@ function PropertyCard({ property }) {
                 {property.verified && (
                     <p className="mt-4 flex items-center gap-1.5 text-[10px] text-[#7b806b]">
                         <ShieldCheck size={14} />
-                        Doğrulanmış ilan
+                        {t("verifiedListing")}
                     </p>
                 )}
             </div>
