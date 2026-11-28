@@ -24,7 +24,10 @@ public class ResetPasswordValidator : AbstractValidator<ResetPasswordDto>
     .EmailAddress()
     .MaximumLength(256);
 
-        RuleFor(x => x.Token).NotEmpty().MaximumLength(8192);
+        RuleFor(x => x.Token)
+            .NotEmpty()
+            .Matches(@"\A[0-9]{6}\z")
+    .WithMessage("The password reset code must contain exactly six digits.");
         RuleFor(x => x.NewPassword).MeetsPasswordPolicy();
         RuleFor(x => x.ConfirmPassword)
             .Equal(x => x.NewPassword).WithMessage("Passwords do not match.");

@@ -248,6 +248,34 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Registration_code_stops_working_after_five_wrong_attempts()
+    {
+        var email = $"user{Guid.NewGuid():N}@gmail.com";
+        var code = await _factory.RequestVerificationAsync(email);
+        Assert.Matches(@"\A[0-9]{6}\z", code);
+
+        using var client = Anonymous();
+        var dto = new RegisterDto
+        {
+            FullName = "Integration User",
+            Email = email,
+            Password = "Passw0rd1",
+            ConfirmPassword = "Passw0rd1",
+            VerificationToken = code == "000000" ? "000001" : "000000"
+        };
+
+        for (var i = 0; i < 5; i++)
+        {
+            var wrong = await client.PostAsJsonAsync("/api/auth/register", dto);
+            Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+        }
+
+        dto.VerificationToken = code;
+        var exhausted = await client.PostAsJsonAsync("/api/auth/register", dto);
+        Assert.Equal(HttpStatusCode.BadRequest, exhausted.StatusCode);
+    }
+
+    [Fact]
     public async Task Password_reset_changes_password_revokes_refresh_token_and_rejects_reuse()
     {
         var auth = await RegisterAsync();
@@ -267,10 +295,12 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
             .GetRequiredService<TestEmailService>()
             .TakeToken(auth.Email);
 
+        Assert.Matches(@"\A[0-9]{6}\z", token);
+
         var reset = new ResetPasswordDto
         {
             Email = auth.Email,
-            Token = "invalid-token",
+            Token = token == "000000" ? "000001" : "000000",
             NewPassword = "NewPassw0rd",
             ConfirmPassword = "NewPassw0rd"
         };
@@ -299,6 +329,46 @@ public class ApiIntegrationTests : IClassFixture<ApiFactory>
             "/api/auth/login",
             new LoginDto { Email = auth.Email, Password = reset.NewPassword });
         Assert.Equal(HttpStatusCode.OK, newPassword.StatusCode);
+    }
+
+    [Fact]
+    public async Task Password_reset_code_is_rejected_after_five_wrong_attempts()
+    {
+        var auth = await RegisterAsync();
+        using var client = Anonymous();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/forgot-password",
+            new EmailRequestDto { Email = auth.Email });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+        var code = _factory.Services
+            .GetRequiredService<TestEmailService>()
+            .TakeToken(auth.Email);
+
+        var reset = new ResetPasswordDto
+        {
+            Email = auth.Email,
+            Token = code == "000000" ? "000001" : "000000",
+            NewPassword = "NewPassw0rd",
+            ConfirmPassword = "NewPassw0rd"
+        };
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var wrong = await client.PostAsJsonAsync(
+                "/api/auth/reset-password", reset);
+
+            Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+        }
+
+        reset.Token = code;
+
+        var exhausted = await client.PostAsJsonAsync(
+            "/api/auth/reset-password", reset);
+
+        Assert.Equal(HttpStatusCode.BadRequest, exhausted.StatusCode);
     }
 
 

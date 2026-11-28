@@ -17,6 +17,7 @@ public sealed class AuthService : IAuthService
     private readonly IUnitOfWork _uow;
     private readonly IEmailService _email;
     private readonly IRegistrationEmailToken _registrationEmailToken;
+    private readonly IPasswordResetCode _passwordResetCode;
 
     public AuthService(
         IUserRepository users,
@@ -24,7 +25,8 @@ public sealed class AuthService : IAuthService
         IJwtService jwt,
         IUnitOfWork uow,
         IEmailService email,
-        IRegistrationEmailToken registrationEmailToken)
+        IRegistrationEmailToken registrationEmailToken,
+        IPasswordResetCode passwordResetCode)
     {
         _users = users;
         _refreshTokens = refreshTokens;
@@ -32,50 +34,63 @@ public sealed class AuthService : IAuthService
         _uow = uow;
         _email = email;
         _registrationEmailToken = registrationEmailToken;
+        _passwordResetCode = passwordResetCode;
     }
 
     public async Task RequestPasswordResetAsync(
-        EmailRequestDto dto, CancellationToken ct = default)
+    EmailRequestDto dto, CancellationToken ct = default)
     {
         var user = await _users.FindByEmailAsync(dto.Email.Trim(), ct);
         if (user?.Email is not { } email || user.PasswordHash is null)
             return;
 
-        var token = await _users.GeneratePasswordResetTokenAsync(user);
+        var identityToken = await _users.GeneratePasswordResetTokenAsync(user);
+        var code = _passwordResetCode.Create(user.Id, identityToken);
+        if (code is null)
+            return;
+
         await _email.SendAsync(
             email,
             "ArsaDuragi — şifrəni sıfırla",
-            $"<p>Şifrənizi sıfırlamaq üçün bu tokeni 30 dəqiqə ərzində daxil edin.</p><p>{WebUtility.HtmlEncode(token)}</p>",
+            $"<p>Şifrənizi sıfırlamaq üçün bu 6 rəqəmli kodu 30 dəqiqə ərzində daxil edin.</p><p>{code}</p>",
             ct);
     }
 
     public async Task ResetPasswordAsync(
-        ResetPasswordDto dto, CancellationToken ct = default)
+    ResetPasswordDto dto, CancellationToken ct = default)
     {
-        const string invalid = "Password reset failed. Check the token and password requirements.";
+        const string invalid =
+            "Password reset failed. Check the reset code and password requirements.";
+
         var user = await _users.FindByEmailAsync(dto.Email.Trim(), ct)
                    ?? throw new BadRequestException(invalid);
 
-        // Identity saves the password change and the tracked token revocations together.
+        var identityToken = _passwordResetCode.GetIdentityToken(user.Id, dto.Token)
+                            ?? throw new BadRequestException(invalid);
+
+        // Identity saves the changed password and the tracked token revocations together.
         await _refreshTokens.RevokeAllForUserAsync(user.Id, ct);
-        var result = await _users.ResetPasswordAsync(user, dto.Token.Trim(), dto.NewPassword);
+        var result = await _users.ResetPasswordAsync(user, identityToken, dto.NewPassword);
 
         if (!result.Succeeded)
             throw new BadRequestException(invalid, result.Errors);
     }
 
     public async Task RequestRegistrationVerificationAsync(
-        EmailRequestDto dto, CancellationToken ct = default)
+    EmailRequestDto dto, CancellationToken ct = default)
     {
         var email = NormalizeGmail(dto.Email);
         if (await _users.FindByEmailAsync(email, ct) is not null)
             return;
 
-        var token = _registrationEmailToken.Create(email);
+        var code = _registrationEmailToken.Create(email);
+        if (code is null)
+            return;
+
         await _email.SendAsync(
             email,
-            "ArsaDuragi — Gmail ünvanını təsdiqlə",
-            $"<p>Qeydiyyatı tamamlamaq üçün bu tokeni 30 dəqiqə ərzində daxil edin.</p><p>{WebUtility.HtmlEncode(token)}</p>",
+            "ArsaDuragi — Gmail təsdiq kodu",
+            $"<p>Qeydiyyatı tamamlamaq üçün bu 6 rəqəmli kodu 30 dəqiqə ərzində daxil edin.</p><p>{code}</p>",
             ct);
     }
 
@@ -86,7 +101,7 @@ public sealed class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(dto.VerificationToken) ||
             !_registrationEmailToken.IsValid(email, dto.VerificationToken.Trim()))
         {
-            throw new BadRequestException("Invalid or expired registration verification token.");
+            throw new BadRequestException("Invalid or expired Gmail verification code.");
         }
 
         if (await _users.FindByEmailAsync(email, ct) is not null)
