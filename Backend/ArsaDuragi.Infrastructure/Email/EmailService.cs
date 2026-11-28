@@ -47,6 +47,7 @@ public sealed class EmailService : IEmailService
             };
 
             await client.SendMailAsync(message, ct);
+            _logger.LogInformation("SMTP accepted the e-mail for delivery.");
         }
         catch (Exception ex)
         {

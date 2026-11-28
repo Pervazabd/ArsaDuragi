@@ -30,16 +30,17 @@ public class AuthServiceTests
         _uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var proof = new Mock<IRegistrationEmailToken>();
-        proof.Setup(x => x.IsValid("test@gmail.com", "valid-token"))
+        proof.Setup(x => x.IsValid("test@gmail.com", "012345"))
             .Returns(true);
 
         _service = new AuthService(
-            _users.Object,
-            _tokens.Object,
-            _jwt.Object,
-            _uow.Object,
-            Mock.Of<IEmailService>(),
-            proof.Object);
+    _users.Object,
+    _tokens.Object,
+    _jwt.Object,
+    _uow.Object,
+    Mock.Of<IEmailService>(),
+    proof.Object,
+    Mock.Of<IPasswordResetCode>());
     }
 
     private static RegisterDto ValidRegister() => new()
@@ -49,7 +50,7 @@ public class AuthServiceTests
         PhoneNumber = "+994501234567",
         Password = "Passw0rd1",
         ConfirmPassword = "Passw0rd1",
-        VerificationToken = "valid-token"
+        VerificationToken = "012345"
     };
 
     private static User ExistingUser() => new() { Id = "u1", Email = "test@example.com", UserName = "test@example.com", FullName = "Test User" };

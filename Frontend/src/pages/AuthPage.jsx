@@ -50,7 +50,7 @@ function AuthPage({ mode }) {
     const submitLabel = isResetConfirmation
         ? "Şifrəni yenilə"
         : isReset || (isRegister && !canRegister)
-          ? "Token göndər"
+          ? "Kod göndər"
           : isRegister
             ? "Hesab yarat"
             : "Daxil ol";
@@ -98,7 +98,7 @@ function AuthPage({ mode }) {
                 const normalizedEmail = address.toLowerCase();
                 await requestRegistrationVerification(normalizedEmail);
                 setVerificationEmail(normalizedEmail);
-                setMessage("Qeydiyyatı tamamlamaq üçün Gmail-ə gələn tokeni daxil edin.");
+                setMessage("Gmail-ə gələn 6 rəqəmli kodu daxil edin. Yeni kodu bir dəqiqədən sonra istəyə bilərsiniz.");
                 return;
             }
 
@@ -106,7 +106,7 @@ function AuthPage({ mode }) {
                 await requestPasswordReset(address);
                 showResetStep(
                     "confirm",
-                    "Bu ünvanla hesab varsa, sıfırlama tokeni göndəriləcək.",
+                    "Bu ünvanla hesab varsa, 6 rəqəmli sıfırlama kodu göndəriləcək.",
                 );
                 return;
             }
@@ -237,7 +237,7 @@ function AuthPage({ mode }) {
                         <p className="mt-2 text-sm leading-6 text-[#77726b]">
                             {isReset
                                 ? isResetConfirmation
-                                  ? "E-poçtdakı tokeni və yeni şifrənizi daxil edin."
+                                  ? "E-poçtdakı 6 rəqəmli kodu və yeni şifrənizi daxil edin."
                                   : "Hesabınızın e-poçt ünvanını daxil edin."
                                 : isRegister
                                   ? "Elanları izləmək üçün məlumatlarınızı daxil edin."
@@ -281,21 +281,21 @@ function AuthPage({ mode }) {
                                         size={17}
                                         className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[#a19b92]"
                                     />
-                                        <input
-                                            className={fieldClassName}
-                                            type="email"
-                                            name="email"
-                                            autoComplete="email"
-                                            placeholder={isRegister ? "ad@gmail.com" : "ad@example.com"}
-                                            value={email}
-                                            onChange={(event) => {
-                                                setEmail(event.target.value);
-                                                setVerificationEmail("");
-                                            }}
-                                            readOnly={isSubmitting || isResetConfirmation}
-                                            maxLength={256}
-                                            required
-                                        />
+                                    <input
+                                        className={fieldClassName}
+                                        type="email"
+                                        name="email"
+                                        autoComplete="email"
+                                        placeholder={isRegister ? "ad@gmail.com" : "ad@example.com"}
+                                        value={email}
+                                        onChange={(event) => {
+                                            setEmail(event.target.value);
+                                            setVerificationEmail("");
+                                        }}
+                                        readOnly={isSubmitting || isResetConfirmation}
+                                        maxLength={256}
+                                        required
+                                    />
                                 </span>
                             </label>
 
@@ -326,13 +326,15 @@ function AuthPage({ mode }) {
                             {(canRegister || isResetConfirmation) && (
                                 <label className="block">
                                     <span className="mb-2 block text-xs font-semibold text-[#494640]">
-                                        {isRegister ? "Gmail təsdiq tokeni" : "Şifrə sıfırlama tokeni"}
+                                        {isRegister ? "Gmail təsdiq kodu" : "Şifrə sıfırlama kodu"}
                                     </span>
                                     <input
                                         className={`${fieldClassName} pl-4`}
                                         name="token"
                                         autoComplete="one-time-code"
-                                        maxLength={2048}
+                                        inputMode="numeric"
+                                        pattern="[0-9]{6}"
+                                        maxLength={6}
                                         required
                                     />
                                 </label>
@@ -385,11 +387,7 @@ function AuthPage({ mode }) {
                                         />
                                         <input
                                             className={fieldClassName}
-                                            type={
-                                                passwordVisible
-                                                    ? "text"
-                                                    : "password"
-                                            }
+                                            type={passwordVisible ? "text" : "password"}
                                             name="confirmPassword"
                                             autoComplete="new-password"
                                             placeholder="Şifrənizi yenidən yazın"
@@ -440,7 +438,7 @@ function AuthPage({ mode }) {
                                     className="text-sm font-semibold text-[#8b6a40] hover:underline"
                                     disabled={isSubmitting}
                                 >
-                                    Tokeni yenidən göndər
+                                    Kodu yenidən göndər
                                 </button>
                             )}
                         </form>

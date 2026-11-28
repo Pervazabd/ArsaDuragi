@@ -24,6 +24,9 @@ public class RegisterValidator : AbstractValidator<RegisterDto>
         RuleFor(x => x.ConfirmPassword)
             .Equal(x => x.Password).WithMessage("Passwords do not match.");
 
-        RuleFor(x => x.VerificationToken).NotEmpty().MaximumLength(2048);
+        RuleFor(x => x.VerificationToken)
+            .NotEmpty()
+            .Matches(@"\A[0-9]{6}\z")
+            .WithMessage("The Gmail verification code must contain exactly six digits.");
     }
 }

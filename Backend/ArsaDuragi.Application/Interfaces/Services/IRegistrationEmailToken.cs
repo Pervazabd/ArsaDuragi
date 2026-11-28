@@ -2,6 +2,6 @@
 
 public interface IRegistrationEmailToken
 {
-    string Create(string email);
+    string? Create(string email);
     bool IsValid(string email, string token);
 }

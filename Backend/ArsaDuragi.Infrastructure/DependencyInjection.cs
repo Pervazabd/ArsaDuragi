@@ -23,6 +23,9 @@ public static class DependencyInjection
         services.AddSingleton<IEmailService, EmailService>();
 
         services.AddDataProtection();
+        services.AddMemoryCache();
+        services.AddSingleton<EmailVerificationCodes>();
+        services.AddSingleton<IPasswordResetCode, PasswordResetCode>();
         services.AddSingleton<IRegistrationEmailToken, RegistrationEmailToken>();
 
         return services;

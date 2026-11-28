@@ -21,7 +21,7 @@ public class ValidatorAndMappingTests
         Email = "test@gmail.com",
         Password = "Passw0rd1",
         ConfirmPassword = "Passw0rd1",
-        VerificationToken = "valid-token"
+        VerificationToken = "012345"
     };
 
     [Fact]
